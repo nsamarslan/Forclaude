@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Uzay Kronolojisi</title>
+<meta name="description" content="862 uzay sorusunun cevabını Büyük Patlama'dan bugüne animasyonlu bir zaman yolculuğunda öğren.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Unbounded:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="app">
+  <header class="top">
+    <button class="brand" id="homeBtn" type="button" aria-label="Başa dön">
+      <span class="brand-name">Uzay Kronolojisi</span>
+      <span class="brand-sub" id="brandSub">862 soru · zaman yolculuğu</span>
+    </button>
+    <div class="top-actions">
+      <span class="mastery" id="mastery" title="Son cevabı doğru olan sorular"></span>
+      <button class="btn" id="searchBtn" type="button" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <span>Ara</span><span class="kbd">/</span>
+      </button>
+      <button class="btn btn-accent" id="quizBtn" type="button" aria-haspopup="dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>
+        <span>Sına</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="topic-banner" id="topicBanner" hidden>
+    <span class="lbl">Konu turu</span>
+    <strong id="topicName"></strong>
+    <span class="count" id="topicCount"></span>
+    <button class="btn btn-ghost" id="topicClose" type="button">Turu bitir</button>
+  </div>
+
+  <main class="stage" id="stage">
+    <section class="viewport" id="viewport" aria-label="Sahne">
+      <div class="stamp">
+        <span class="era-name" id="eraName"></span>
+        <div class="year" id="year" aria-live="polite"></div>
+        <h1 class="ev-title" id="evTitle"></h1>
+      </div>
+      <div class="scene" id="scene"></div>
+      <button class="btn btn-ghost play-btn" id="playBtn" type="button" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span class="hide-sm">Otomatik yolculuk</span>
+      </button>
+      <button class="nav-btn nav-prev" id="prevBtn" type="button" aria-label="Önceki durak">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button class="nav-btn nav-next" id="nextBtn" type="button" aria-label="Sonraki durak">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+    </section>
+    <aside class="info" id="info" aria-live="polite"></aside>
+  </main>
+
+  <footer class="timeline">
+    <div class="era-row" id="eraRow" role="tablist" aria-label="Dönemler"></div>
+    <div class="track-wrap">
+      <div class="track" id="track" role="slider" tabindex="0" aria-label="Zaman çizgisi" aria-valuemin="1"></div>
+    </div>
+    <div class="track-hint"><span id="trackLeft"></span><span class="hide-sm">Sürükle, tıkla ya da ← → tuşlarını kullan</span><span id="trackRight"></span></div>
+  </footer>
+</div>
+
+<div class="overlay" id="searchOverlay" role="dialog" aria-modal="true" aria-label="Arama" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <svg class="s-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+      <input class="search-input" id="searchInput" type="search" placeholder="Konu, kişi, araç ya da sorudan birkaç kelime: ay rover, Venera, Gagarin…" autocomplete="off" spellcheck="false">
+      <button class="btn btn-ghost" data-close type="button">Kapat</button>
+    </div>
+    <div class="sheet-body" id="searchBody"></div>
+  </div>
+</div>
+
+<div class="overlay" id="quizOverlay" role="dialog" aria-modal="true" aria-label="Sınav" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Kendini sına</h2>
+      <button class="btn btn-ghost" data-close type="button">Kapat</button>
+    </div>
+    <div class="sheet-body" id="quizBody"></div>
+  </div>
+</div>
+
+<script src="data/events.js"></script>
+<script src="data/questions.js"></script>
+<script src="js/scene-parts.js"></script>
+<script src="js/scenes-a.js"></script>
+<script src="js/scenes-b.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
