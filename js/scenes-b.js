@@ -3,8 +3,12 @@
   'use strict';
   const P = window.ScenePart;
   const S = (window.SCENES = window.SCENES || {});
-  const { svg, t, spin, stars, planet } = P;
+  const { svg, t, spin, stars, planet, fx } = P;
   const cos = Math.cos, sin = Math.sin, PI = Math.PI;
+  const fxOn = () => !!(window.FX && window.FX.enabled);
+  // Rampa ateşlemesi: yerde duman, sarsıntı ve sahneyi aydınlatan alev ışığı
+  const padFx = (d, amp = 2.5, size = 1) => fx('billow', { delay: d + 0.15, dur: 3.6, rate: 16, size }, 400, 384) + fx('shake', { delay: d, dur: 2.6, amp });
+  const marsDust = () => fx('drift', { area: [0, 160, 800, 240], rate: 5, vx: 34, pal: 'mars', size: 3, a: 0.22, add: false });
 
   const earthArc = (cy = 900, r = 560, spinS = 70) => `<g>${planet('earth', 400, cy, r, { spin: spinS, glow: true })}</g>`;
   const lines = (arr, x = 56, y = 44, anchor = 'start', d0 = 0.8) => `<g class="fade" style="--d:${d0}s">${arr.map((s, i) => t(x, y + i * 20, s, i === 0 ? '' : i === arr.length - 1 ? 'lbl-s lbl-gold' : 'lbl-s', `text-anchor="${anchor}"`)).join('')}</g>`;
@@ -23,17 +27,22 @@
     const v = sc.v;
     if (v === 'falconLand') {
       return svg(`${stars(40, 3, [0, 0, 800, 250])}${pad()}<ellipse cx="400" cy="382" rx="60" ry="8" fill="none" stroke="#e8b45a" stroke-width="2"/>${t(392, 386, 'X', 'lbl-gold')}
-        <g transform="translate(400,378)"><g class="move" style="--fy:-420px;--dur:3.6s;--d:.2s">${P.rocket('falcon9', { legs: true, flame: false })}<g class="fade-out" style="--d:3.6s"><g transform="translate(0,0)">${P.flame(14, 50)}</g></g></g></g>
-        <g class="fade" style="--d:3.6s">${P.smoke(400, 382, 6, 9, 160)}</g>${lines(['21 Aralık 2015 · Cape Canaveral', 'Falcon 9 ilk kademesi geri dönüp dikey kondu', 'Rekor: tek fırlatışta 143 uydu (2021)'])}`);
+        <g transform="translate(400,378)"><g class="move" style="--fy:-420px;--dur:3.6s;--d:.2s"><g class="settle" style="--d:3.75s">${P.rocket('falcon9', { legs: true, flame: false })}</g><g class="fade-out" style="--d:3.6s"><g transform="translate(0,0)">${P.flame(14, 50)}</g></g>${fx('exhaust', { delay: 0.2, dur: 3.4, ground: 384, size: 0.7, power: 0.55 }, 0, 4)}${fx('light', { delay: 0.2, dur: 3.5, size: 220, a: 0.4, dy: 20 })}</g></g>
+        ${fx('billow', { delay: 3.1, dur: 1.4, rate: 18, size: 0.8 }, 400, 382)}${fx('shake', { delay: 3.6, dur: 0.6, amp: 2 })}
+        ${fxOn() ? '' : `<g class="fade" style="--d:3.6s">${P.smoke(400, 382, 6, 9, 160)}</g>`}${lines(['21 Aralık 2015 · Cape Canaveral', 'Falcon 9 ilk kademesi geri dönüp dikey kondu', 'Rekor: tek fırlatışta 143 uydu (2021)'])}`);
     }
     const r = { goddard: 'goddard', newshepard: 'newshepard', sls: 'sls', starship: 'starship' }[v] || v;
     const k = v === 'starship' ? 1 : v === 'goddard' ? 1.6 : 1.1;
     const ty = v === 'goddard' ? -110 : -720;
-    const extra = v === 'starship' ? tower(470, 380, 300) : v === 'goddard' ? '<path d="M0,386 L800,386 L800,450 L0,450Z" fill="#dfe6f4" opacity=".22"/><g transform="translate(400,380) scale(1.6)"><path d="M-22,0 L0,-96 L22,0" stroke="#8a93b0" stroke-width="2" fill="none"/><line x1="-14" y1="-30" x2="14" y2="-30" stroke="#8a93b0" stroke-width="2"/></g>' : tower(445, 380, 240);
-    return svg(`${stars(50, 5, [0, 0, 800, 300])}${pad()}${extra}
-      <g class="fade-out" style="--d:1.2s">${t(400, 140, '3 · 2 · 1', 'lbl-b', 'text-anchor="middle"')}</g>
-      <g transform="translate(400,380) scale(${k})"><g class="go" style="--d:1.5s;--dur:${v === 'goddard' ? 2.5 : 5}s;--ty:${ty}px"><g class="shake" style="--d:.9s">${P.rocket(r)}</g></g></g>
-      ${v === 'goddard' ? P.smoke(400, 384, 4, 7, 50).replace(/r="(\d+)"/g, (m, r) => `r="${Math.round(r / 2.5)}"`) : P.smoke(400, 384, 12, 7, 220)}${lines(ROCKET_INFO[v] || [])}`);
+    const small = v === 'goddard';
+    const extra = v === 'starship' ? tower(470, 380, 300) : small ? '<path d="M0,386 L800,386 L800,450 L0,450Z" fill="#dfe6f4" opacity=".22"/><g transform="translate(400,380) scale(1.6)"><path d="M-22,0 L0,-96 L22,0" stroke="#8a93b0" stroke-width="2" fill="none"/><line x1="-14" y1="-30" x2="14" y2="-30" stroke="#8a93b0" stroke-width="2"/></g>' : tower(445, 380, 240);
+    // Geri sayım → ateşleme (1,1 sn) → kalkış (1,6 sn)
+    const count = ['3', '2', '1'].map((n, i) => `<g class="blip" style="--d:${0.2 + i * 0.4}s;animation-duration:.55s">${t(400, 150, n, 'lbl-b', 'text-anchor="middle" style="font-size:44px"')}</g>`).join('');
+    const rk = P.rocket(r, { ignite: 1.1, fx: { delay: 1.1, dur: 9, ground: 384, rate: v === 'sls' ? 30 : 50, power: small ? 0.45 : 1, smoke: !small } });
+    const smoke = small ? P.smoke(400, 384, 4, 7, 50).replace(/r="(\d+)"/g, (m, r) => `r="${Math.round(r / 2.5)}"`) : P.smoke(400, 384, 12, 7, 220);
+    return svg(`${stars(50, 5, [0, 0, 800, 300])}${pad()}${extra}${count}
+      <g transform="translate(400,380) scale(${k})"><g class="go" style="--d:1.6s;--dur:${small ? 2.5 : 5}s;--ty:${ty}px"><g class="shake" style="--d:1.1s">${rk}${fx('light', { delay: 1.1, dur: small ? 2.6 : 5, size: small ? 120 : 300, a: 0.5, dy: 30 })}</g></g></g>
+      ${small ? fx('shake', { delay: 1.1, dur: 1.2, amp: 0.8 }) : padFx(1.1, v === 'starship' ? 3.5 : 2.5, v === 'starship' ? 1.3 : 1)}${fxOn() ? '' : smoke}${lines(ROCKET_INFO[v] || [])}`);
   };
 
   // ─── Yörüngede uydular
@@ -45,7 +54,7 @@
         ${lines(['1945 · Arthur C. Clarke\'ın makalesi', '3 uydu = bütün Dünya\'ya yayın', 'Yükseklik ~36.000 km · günde 1 tur: gökte sabit'])}`);
     }
     if (v === 'explorer') {
-      return svg(`${stars(60, 22)}<g transform="translate(400,225)"><g fill="none" stroke-width="22" opacity=".25"><ellipse rx="120" ry="60" stroke="#ff9a5a"/><ellipse rx="200" ry="100" stroke="#86d5ff"/></g>${planet('earth', 0, 0, 56, { spin: 20 })}
+      return svg(`${stars(60, 22)}<g transform="translate(400,225)"><g fill="none" stroke-width="22" opacity=".25"><ellipse rx="120" ry="60" stroke="#ff9a5a"/><ellipse rx="200" ry="100" stroke="#86d5ff"/></g>${fx('vortex', { cx: 400, cy: 225, r0: 128, tilt: 0.5, shrink: 0, w: 0.9, rate: 3, pal: 'ember', dur: 9 })}${fx('vortex', { cx: 400, cy: 225, r0: 208, tilt: 0.5, shrink: 0, w: 0.55, rate: 4, pal: 'ion', dur: 9 })}${planet('earth', 0, 0, 56, { spin: 20 })}
         <ellipse rx="230" ry="80" fill="none" stroke="#8a95c8" stroke-opacity=".35" stroke-dasharray="4 6" transform="rotate(-18)"/><g transform="rotate(-18)"><g>${P.motion(P.orbitPath(0, 0, 230, 80), 7)}${P.sat('explorer', 0.8)}</g></g></g>
         ${lines(['31 Ocak 1958 · Explorer 1', 'ABD\'nin ilk başarılı uydusu', 'Van Allen radyasyon kuşaklarını buldu · NASA: Ekim 1958'])}`);
     }
@@ -59,7 +68,7 @@
       return svg(`${stars(40, 24)}<g transform="translate(400,225)">${planet('earth', 0, 0, 70, { spin: 20 })}${junk}
         <g transform="translate(-140,-110)"><g class="move" style="--tx:140px;--ty:0px;--dur:2.6s;--d:.4s"><g class="fade-out" style="--d:3s;--dur:.2s">${P.sat('geo', 0.5)}</g></g></g>
         <g transform="translate(140,-110)"><g class="move" style="--tx:-140px;--dur:2.6s;--d:.4s"><g class="fade-out" style="--d:3s;--dur:.2s">${P.sat('sputnik', 0.7)}</g></g></g>
-        <g transform="translate(0,-110)"><circle r="40" fill="url(#g-wglow)" class="flash" style="--d:3s"/>${Array.from({ length: 16 }, (_, i) => { const a = (i / 16) * 2 * PI; return `<rect width="3" height="2" fill="#dfe3ea" class="move" style="--tx:${(cos(a) * 90).toFixed(0)}px;--ty:${(sin(a) * 60).toFixed(0)}px;--fo:0;--dur:3s;--d:3s"/>`; }).join('')}</g></g>
+        <g transform="translate(0,-110)"><circle r="40" fill="url(#g-wglow)" class="flash" style="--d:3s"/>${fx('burst', { delay: 3, count: 110, speed: 150, pal: 'white', life: 2.6, size: 3, size1: 1.5, drag: 0.25, streak: 0.04 })}${fx('burst', { delay: 3, count: 36, speed: 70, pal: 'fire', life: 0.8, size: 12, drag: 2 })}${fx('flash', { delay: 3, dur: 0.5, a: 0.3 })}${Array.from({ length: 16 }, (_, i) => { const a = (i / 16) * 2 * PI; return `<rect width="3" height="2" fill="#dfe3ea" class="move" style="--tx:${(cos(a) * 90).toFixed(0)}px;--ty:${(sin(a) * 60).toFixed(0)}px;--fo:0;--dur:3s;--d:3s"/>`; }).join('')}</g></g>
         ${lines(['10 Şubat 2009 · Sibirya üzerinde', 'Iridium 33 ile ölü Kosmos 2251 çarpıştı', 'En çok uzay çöpü: ABD · ClearSpace çöp toplayacak'])}`);
     }
     if (v === 'starlink') {
@@ -82,14 +91,14 @@
     if (v === 'telstar') {
       return svg(`${stars(50, 28, [0, 0, 800, 300])}${earthArc(920, 590, 0)}
         <circle cx="180" cy="372" r="5" fill="#e8b45a"/><circle cx="620" cy="372" r="5" fill="#e8b45a"/>${t(180, 362, 'Andover (ABD)', 'lbl-s', 'text-anchor="middle"')}${t(620, 362, 'Pleumeur-Bodou (Fransa)', 'lbl-s', 'text-anchor="middle"')}
-        <path d="M180,372 L400,110 L620,372" fill="none" stroke="#86d5ff" stroke-width="2" stroke-dasharray="6 6" class="draw" style="--len:600;--d:1s"/>
+        <path d="M180,372 L400,110 L620,372" fill="none" stroke="#86d5ff" stroke-width="2" stroke-dasharray="6 6" class="draw" style="--len:600;--d:1s"/>${fx('stream', { delay: 1.4, from: [180, 372], to: [400, 112], width: 4, speed: 260, rate: 14, pal: 'ion', size: 0.9 })}${fx('stream', { delay: 2.4, from: [400, 112], to: [620, 372], width: 4, speed: 260, rate: 14, pal: 'ion', size: 0.9 })}
         <g transform="translate(400,110)"><g class="pop" style="--d:.3s">${P.sat('telstar', 1.6)}</g></g><g transform="translate(560,120)"><g class="fade" style="--d:1.8s">${football(16)}${t(56, 5, '= ilham', 'lbl-s')}</g></g>
         ${lines(['Telstar 1 · Temmuz 1962', 'Atlantik aşırı ilk canlı TV yayını', 'Syncom 3 (1964): ilk jeostatik haberleşme uydusu'])}`);
     }
     // sputnik (varsayılan)
     const arc = 'M-60,300 Q400,20 860,300';
     return svg(`${stars(70, 29, [0, 0, 800, 330])}${earthArc(920, 580, 60)}<path d="${arc}" fill="none" stroke="#8a95c8" stroke-opacity=".3" stroke-dasharray="4 6"/>
-      <g>${P.motion(arc, 9)}<g><circle r="20" fill="none" stroke="#ffe7a8" class="ripple" style="--dur:1.8s"/><circle r="20" fill="none" stroke="#ffe7a8" class="ripple" style="--dur:1.8s;--d:.9s"/></g>${P.sat('sputnik', 1.4)}<text x="18" y="-18" class="lbl-gold blink" style="--dur:.9s">bip</text></g>
+      <g>${P.motion(arc, 9)}<g><circle r="20" fill="none" stroke="#ffe7a8" class="ripple" style="--dur:1.8s"/><circle r="20" fill="none" stroke="#ffe7a8" class="ripple" style="--dur:1.8s;--d:.9s"/></g>${P.sat('sputnik', 1.4)}${fx('trail', { pal: 'white', rate: 14, size: 0.4, life: 1.2, a: 0.5 })}<text x="18" y="-18" class="lbl-gold blink" style="--dur:.9s">bip</text></g>
       ${lines(['4 Ekim 1957 · Baykonur Kozmodromu', 'Sputnik 1: ilk yapay uydu (SSCB)', '58 cm çap · 96 dakikada bir tur · uzay yarışı başladı'])}`);
   };
 
@@ -131,7 +140,7 @@
   S.escape = function () {
     const path = 'M150,300 C240,180 330,150 420,190 C520,240 620,200 700,120';
     return svg(`${stars(80, 35)}${planet('earth', 150, 310, 44, { spin: 20 })}${planet('moon', 360, 180, 12)}<g transform="translate(820,60)">${P.sun(0, 0, 60)}</g>
-      <path d="${path}" fill="none" stroke="#e8b45a" stroke-dasharray="4 6" class="draw" style="--len:700;--dur:3s"/><g>${P.motion(path, 6)}${P.probe('pioneer', 0.8)}</g>
+      <path d="${path}" fill="none" stroke="#e8b45a" stroke-dasharray="4 6" class="draw" style="--len:700;--dur:3s"/><g>${P.motion(path, 6)}${P.probe('pioneer', 0.8)}${fx('trail', { pal: 'ion', rate: 30, size: 0.5, life: 0.7 })}</g>
       ${lines(['1959 · Luna 1 ve Pioneer 4', 'Dünya\'nın çekiminden kurtulan ilk sondalar', 'Uzay sondası: gezegenler arası robotik araç'], 56, 380)}`);
   };
 
@@ -157,7 +166,7 @@
   };
 
   S.quasar = function () {
-    return svg(`${stars(80, 41)}<g transform="translate(400,220) rotate(-25)"><ellipse rx="160" ry="60" fill="#8b7bff" opacity=".12" filter="url(#f-blur)"/><g class="glowp" style="--dur:1.6s;--lo:.4"><path d="M0,0 L320,-6 L320,6Z" fill="#86d5ff" opacity=".6"/><path d="M0,0 L-320,-6 L-320,6Z" fill="#86d5ff" opacity=".6"/></g><circle r="50" fill="url(#g-wglow)" class="pulse" style="--s:1.2"/><circle r="8" fill="#fff"/></g>
+    return svg(`${stars(80, 41)}<g transform="translate(400,220) rotate(-25)"><ellipse rx="160" ry="60" fill="#8b7bff" opacity=".12" filter="url(#f-blur)"/><g class="glowp" style="--dur:1.6s;--lo:.4"><path d="M0,0 L320,-6 L320,6Z" fill="#86d5ff" opacity=".6"/><path d="M0,0 L-320,-6 L-320,6Z" fill="#86d5ff" opacity=".6"/></g><circle r="50" fill="url(#g-wglow)" class="pulse" style="--s:1.2"/><circle r="8" fill="#fff"/></g>${fx('stream', { from: [400, 220], to: [690, 85], width: 10, speed: 380, rate: 60, pal: 'ion', size: 1.1 })}${fx('stream', { from: [400, 220], to: [110, 355], width: 10, speed: 380, rate: 60, pal: 'ion', size: 1.1 })}
       ${lines(['1963 · Maarten Schmidt', '3C 273: ilk kuasar', 'Dev kara deliğe düşen madde, bütün bir gökadadan parlak'])}`);
   };
 
@@ -177,14 +186,23 @@
     const pk = sc.planet;
     const r = { jupiter: 150, saturn: 92, mars: 118, venus: 120 }[pk] || 110;
     const cx = 520, cy = 225;
-    let extra = '';
-    if (pk === 'mars' && sc.orbit) extra = `<g>${P.motion(P.orbitPath(cx, cy, r + 70, 40), 7)}${planet('rock', 0, 0, 6)}<text x="8" y="-6" class="lbl-s">Phobos</text></g><g>${P.motion(P.orbitPath(cx, cy, r + 120, 60), 16, -4)}${planet('rock', 0, 0, 4)}<text x="8" y="-6" class="lbl-s">Deimos</text></g>`;
-    if (pk === 'jupiter') extra = [[190, 5], [220, 12], [260, 7], [300, 20]].map(([a, d], i) => `<g>${P.motion(P.orbitPath(cx, cy, a, a * 0.18), d, -i * 2)}<circle r="${3 + (i === 2 ? 2 : 0)}" fill="#f4f0e4"/></g>`).join('');
+    // Uydular ve yörüngedeki sonda eğik yörüngede: arkadan geçerken gezegen örter
+    const orbits = [];
+    if (pk === 'mars' && sc.orbit) {
+      orbits.push(P.orbit3d({ cx, cy, rx: r + 70, ry: 40, dur: 7, body: `${planet('rock', 0, 0, 6)}<text x="8" y="-6" class="lbl-s">Phobos</text>` }));
+      orbits.push(P.orbit3d({ cx, cy, rx: r + 120, ry: 60, dur: 16, begin: -4, depth: 0.14, body: `${planet('rock', 0, 0, 4)}<text x="8" y="-6" class="lbl-s">Deimos</text>` }));
+    }
+    if (pk === 'jupiter') [[190, 5], [220, 12], [260, 7], [300, 20]].forEach(([a, d], i) => orbits.push(P.orbit3d({ cx, cy, rx: a, ry: a * 0.18, dur: d, begin: -i * 2, depth: 0.3, body: `<circle r="${3 + (i === 2 ? 2 : 0)}" fill="#f4f0e4"/>` })));
     const probeKind = sc.probe || 'generic';
     const probeSvg = sc.probe === 'voyager' || sc.probe === 'pioneer' || sc.probe === 'cassini' || sc.probe === 'juno' || sc.probe === 'newhorizons' || sc.probe === 'radar' || sc.probe === 'bepi' ? P.probe(probeKind, 1.1) : P.probe('generic', 1);
     const path = sc.orbit ? P.orbitPath(cx, cy, r + 40, (r + 40) * 0.42) : `M-40,120 C200,110 ${cx - r - 60},${cy - r - 40} ${cx},${cy - r - 50} S780,${cy - 40} 860,${cy + 60}`;
-    return svg(`${stars(90, 43)}${planet(pk, cx, cy, r, { spin: pk === 'jupiter' || pk === 'saturn' ? 0 : 40, rings: pk === 'saturn' || pk === 'uranus' })}${extra}
-      <path d="${path}" fill="none" stroke="#e8b45a" stroke-opacity=".5" stroke-dasharray="4 7"/><g>${P.motion(path, sc.orbit ? 9 : 8)}${probeSvg}</g>
+    if (sc.orbit) orbits.push(P.orbit3d({ cx, cy, rx: r + 40, ry: (r + 40) * 0.42, dur: 9, depth: 0.25, body: probeSvg }));
+    const orx = r + 40, ory = orx * 0.42;
+    const flyer = sc.orbit
+      ? `<path d="M${cx - orx},${cy} a${orx},${ory} 0 0,0 ${2 * orx},0" fill="none" stroke="#e8b45a" stroke-opacity=".5" stroke-dasharray="4 7"/>`
+      : `<g>${P.motion(path, 8)}${probeSvg}${fx('trail', { pal: 'ion', rate: 26, size: 0.5, life: 0.7 })}</g>`;
+    return svg(`${stars(90, 43)}<path d="${path}" fill="none" stroke="#e8b45a" stroke-opacity=".5" stroke-dasharray="4 7"/>${orbits.map((o) => o.back).join('')}
+      ${planet(pk, cx, cy, r, { spin: pk === 'jupiter' || pk === 'saturn' ? 0 : 40, rings: pk === 'saturn' || pk === 'uranus' })}${orbits.map((o) => o.front).join('')}${flyer}
       ${lines(PLANET_INFO[pk] || [], 56, 44)}`);
   };
 
@@ -204,18 +222,21 @@
         <g transform="translate(530,372)"><g class="grow" style="--d:4.4s;--o:50% 100%"><line x1="0" y1="0" x2="0" y2="-80" stroke="#cfd6e4" stroke-width="2"/><rect x="0" y="-80" width="40" height="24" fill="#e8edf5"/><rect x="0" y="-80" width="16" height="12" fill="#3a5bd9"/>${[0, 1, 2, 3].map((i) => `<rect x="16" y="${-80 + i * 6}" width="24" height="3" fill="#c8102e"/>`).join('')}</g></g>
         ${[0, 1, 2, 3, 4].map((i) => `<ellipse cx="${440 + i * 16}" cy="${396 + (i % 2) * 6}" rx="4" ry="2" fill="#000" opacity=".4" class="fade" style="--d:${4 + i * 0.2}s"/>`).join('')}`;
     }
-    if (v === 'vikram') after = `<g transform="translate(470,374)"><g class="move" style="--fx:-60px;--dur:2.5s;--d:4.2s">${P.rover('pragyan')}</g></g>`;
+    if (v === 'vikram') after = `<g transform="translate(470,374)"><g class="move" style="--fx:-60px;--dur:2.5s;--d:4.2s">${P.rover('pragyan')}${fx('dust', { delay: 4.2, dur: 2.3, rate: 12, world: 'moon', power: 0.35, size: 0.5, side: -1, g: 20 }, -16, 0)}</g></g>`;
+    // Chang'e 5 yükselme kademesi kalkarken itki
+    if (v === 'change') after = `<g transform="translate(400,352)"><g class="go" style="--d:4.4s;--dur:3s;--ty:-420px">${fx('thrust', { delay: 4.4, dur: 3, rate: 45, size: 0.6 }, 0, -30)}</g></g>${fx('dust', { delay: 4.4, dur: 0.7, rate: 60, world: 'moon', power: 0.7, g: 20 }, 400, 378)}`;
     return svg(`${stars(90, 45, [0, 0, 800, 300])}<g transform="translate(660,90)">${planet('earth', 0, 0, 30, { spin: 20 })}</g>${P.ground('moon', 360, 8)}
-      <g transform="translate(400,352)"><g class="move" style="--fy:-330px;--dur:3.2s;--d:.2s">${lander}<g class="fade-out" style="--d:3.3s">${P.flame(14, 40, 0, 0)}</g></g></g>
-      <g class="fade" style="--d:3.3s">${[0, 1, 2].map((i) => `<ellipse cx="400" cy="378" rx="${60 + i * 30}" ry="${10 + i * 4}" fill="#b5b3aa" opacity=".25" class="grow" style="--d:${3.3 + i * 0.1}s"/>`).join('')}</g>
+      <g transform="translate(400,352)"><g class="move" style="--fy:-330px;--dur:3.2s;--d:.2s"><g class="settle" style="--d:3.4s">${lander}</g><g class="fade-out" style="--d:3.3s">${P.flame(14, 40, 0, 0)}</g>${fx('thrust', { delay: 0.2, dur: 3.1, rate: 60, size: 0.9 }, 0, 4)}${fx('light', { delay: 0.2, dur: 3.1, size: 140, a: 0.35, pal: 'thrust', dy: 16 })}</g></g>
+      ${fxOn() ? '' : `<g class="fade" style="--d:3.3s">${[0, 1, 2].map((i) => `<ellipse cx="400" cy="378" rx="${60 + i * 30}" ry="${10 + i * 4}" fill="#b5b3aa" opacity=".25" class="grow" style="--d:${3.3 + i * 0.1}s"/>`).join('')}</g>`}
+      ${fx('dust', { delay: 2.2, dur: 1.3, rate: 80, world: 'moon', power: 1.3, g: 25 }, 400, 378)}${fx('shake', { delay: 3.35, dur: 0.5, amp: 1.5 })}
       ${after}${lines(LANDING_INFO[v] || [])}`);
   };
 
   S.apollo13 = function () {
     const path = 'M190,250 C330,160 540,120 640,150 C720,176 716,244 660,244 C600,244 520,310 360,320 C270,326 212,300 196,276';
     return svg(`${stars(90, 47)}${planet('earth', 140, 270, 60, { spin: 20 })}${planet('moon', 660, 196, 34)}
-      <path d="${path}" fill="none" stroke="#e8b45a" stroke-opacity=".55" stroke-dasharray="4 6" class="draw" style="--len:1200;--dur:4s"/><g>${P.motion(path, 10)}<circle r="4" fill="#fff"/></g>
-      <g transform="translate(430,152)"><circle r="30" fill="url(#g-glow)" class="flash" style="--d:2.4s;--dur:2s"/></g><g class="fade" style="--d:2.6s">${t(430, 130, '"Houston, bir sorunumuz var"', 'lbl-gold', 'text-anchor="middle"')}</g>
+      <path d="${path}" fill="none" stroke="#e8b45a" stroke-opacity=".55" stroke-dasharray="4 6" class="draw" style="--len:1200;--dur:4s"/><g>${P.motion(path, 10)}<circle r="4" fill="#fff"/>${fx('trail', { delay: 2.4, pal: 'ice', rate: 26, size: 0.7, life: 1.4, a: 0.55 })}</g>
+      <g transform="translate(430,152)"><circle r="30" fill="url(#g-glow)" class="flash" style="--d:2.4s;--dur:2s"/>${fx('burst', { delay: 2.4, count: 90, speed: 110, pal: 'ice', life: 2.4, size: 5, size1: 16, drag: 0.7, a: 0.55 })}${fx('burst', { delay: 2.4, count: 40, speed: 220, pal: 'fire', life: 0.7, size: 4, size1: 2, streak: 0.03, drag: 0.5 })}${fx('flash', { delay: 2.4, dur: 0.5, a: 0.25 })}</g><g class="fade" style="--d:2.6s">${t(430, 130, '"Houston, bir sorunumuz var"', 'lbl-gold', 'text-anchor="middle"')}</g>
       ${lines(['11 Nisan 1970 · Apollo 13', 'Oksijen tankı patladı, iniş iptal', 'Ay\'ın arkasından dolanıp sağ döndüler'], 56, 390)}`);
   };
 
@@ -238,25 +259,28 @@
     let body = '';
     const chute = (col = '#f3f3f0') => `<path d="M-40,-80 Q0,-130 40,-80Z" fill="${col}"/><g stroke="#cfd6e4" stroke-width="1"><line x1="-40" y1="-80" x2="0" y2="-30"/><line x1="40" y1="-80" x2="0" y2="-30"/><line x1="0" y1="-112" x2="0" y2="-30"/></g>`;
     if (v === 'chute') {
-      body = `<g transform="translate(400,120)"><g class="move" style="--fy:-200px;--ty:120px;--dur:8s">${chute()}${P.lander('venera')}</g></g>`;
+      body = `<g transform="translate(400,120)"><g class="move" style="--fy:-200px;--ty:120px;--dur:8s">${chute()}${P.lander('venera')}</g></g>${fx('drift', { area: [0, 0, 800, 340], rate: 7, vx: -26, vy: -40, pal: 'venus', size: 3, a: 0.2, add: false })}`;
       body += `<g class="fade" style="--d:1s">${[0, 1, 2].map((i) => `<path d="M420,${150 + i * 10} q30,-40 60,-80" fill="none" stroke="#fff" stroke-opacity=".5" class="blink" style="--d:${i * 0.3}s"/>`).join('')}</g>`;
     } else if (v === 'land' || v === 'polar') {
       const L = w === 'venus' ? 'venera' : v === 'polar' ? 'phoenix' : 'viking';
-      body = `<g transform="translate(400,366)"><g class="move" style="--fy:-360px;--dur:3.4s;--d:.2s"><g class="fade-out" style="--d:2.2s;--dur:.4s"><g transform="translate(0,-60)">${chute()}</g></g>${P.lander(L)}</g></g>`;
+      // Mars'ta paraşüt bırakılınca retro roketler; Venüs'te kalın atmosfer yavaşlatır
+      const retro = w === 'mars' ? fx('thrust', { delay: 2.3, dur: 1.3, rate: 50, size: 0.7 }, 0, -2) + fx('light', { delay: 2.3, dur: 1.3, size: 120, a: 0.35, dy: 10 }) : '';
+      body = `<g transform="translate(400,366)"><g class="move" style="--fy:-360px;--dur:3.4s;--d:.2s"><g class="fade-out" style="--d:2.2s;--dur:.4s"><g transform="translate(0,-60)">${chute()}</g></g><g class="settle" style="--d:3.55s">${P.lander(L)}</g>${retro}</g></g>`;
+      body += fx('dust', { delay: w === 'mars' ? 2.9 : 3.3, dur: w === 'mars' ? 0.9 : 0.5, rate: 70, world: w, power: w === 'mars' ? 1 : 0.5 }, 400, 388);
       if (v === 'polar') body = `<g fill="#f4f7ff" opacity=".8">${[120, 260, 560, 680].map((x, i) => `<ellipse cx="${x}" cy="${390 + (i % 2) * 20}" rx="${40 + i * 6}" ry="8"/>`).join('')}</g>` + body + '<g class="fade" style="--d:4s"><ellipse cx="460" cy="392" rx="18" ry="5" fill="#fff"/></g>';
     } else if (v === 'camera') {
       body = `<g transform="translate(400,366)">${P.lander('venera')}</g><g class="grow" style="--d:1s;--o:50% 0%"><rect x="120" y="40" width="560" height="110" fill="#3a2410" stroke="#e8b45a"/><path d="M120,150 L200,120 L280,130 L360,110 L440,126 L520,112 L600,130 L680,120 L680,150Z" fill="#a8743a"/>${[160, 250, 330, 420, 520, 610].map((x, i) => `<ellipse cx="${x}" cy="${134 - (i % 2) * 6}" rx="${18 + (i % 3) * 6}" ry="7" fill="#6b4418"/>`).join('')}<path d="M120,40 Q400,120 680,40" fill="none" stroke="#e8b45a" stroke-opacity=".4"/></g>`;
     } else if (v === 'skycrane') {
-      body = `<g transform="translate(400,160)"><g class="go" style="--d:3.8s;--dur:2s;--tx:-520px;--ty:-260px"><rect x="-50" y="-16" width="100" height="22" fill="#cfd6e4"/>${[-44, 44].map((x) => P.flame(8, 26, x, 6)).join('')}</g></g>
-        <g transform="translate(400,372)"><g class="move" style="--fy:-150px;--dur:3.2s;--d:.2s">${P.rover('curiosity')}</g></g>
+      body = `<g transform="translate(400,160)"><g class="go" style="--d:3.8s;--dur:2s;--tx:-520px;--ty:-260px"><rect x="-50" y="-16" width="100" height="22" fill="#cfd6e4"/>${[-44, 44].map((x) => P.flame(8, 26, x, 6) + fx('thrust', { rate: 34, size: 0.55 }, x, 10)).join('')}</g></g>
+        <g transform="translate(400,372)"><g class="move" style="--fy:-150px;--dur:3.2s;--d:.2s"><g class="settle" style="--d:3.4s">${P.rover('curiosity')}</g></g></g>${fx('dust', { delay: 0.8, dur: 3.4, rate: 44, world: 'mars', power: 0.9 }, 400, 384)}
         <g class="fade-out" style="--d:3.6s;--dur:.3s"><line x1="380" y1="170" x2="380" y2="330" stroke="#fff" stroke-width="1"/><line x1="420" y1="170" x2="420" y2="330" stroke="#fff" stroke-width="1"/></g>`;
     } else if (v === 'fail') {
       body = `<g transform="translate(400,370)">${P.lander('beagle')}</g><g class="blink" style="--dur:1s">${t(400, 300, 'SİNYAL YOK', 'lbl-bad', 'text-anchor="middle"')}</g>`;
     } else if (v === 'burn') {
-      body = `<g transform="translate(900,60)"><g class="go-lin" style="--tx:-700px;--ty:180px;--dur:3.5s"><g transform="rotate(-15)">${P.probe('generic', 1)}</g><path d="M10,-4 L140,-40 L140,30Z" fill="#ff9a3d" opacity=".5" class="fade" style="--d:1.8s"/></g></g><g transform="translate(200,240)"><circle r="40" fill="url(#g-glow)" class="flash" style="--d:3.4s"/></g>`;
+      body = `<g transform="translate(900,60)"><g class="go-lin" style="--tx:-700px;--ty:180px;--dur:3.5s"><g transform="rotate(-15)">${P.probe('generic', 1)}</g><path d="M10,-4 L140,-40 L140,30Z" fill="#ff9a3d" opacity=".5" class="fade" style="--d:1.8s"/>${fx('trail', { delay: 1.5, dur: 1.9, pal: 'fire', rate: 90, size: 1.5, life: 1.1 })}</g></g><g transform="translate(200,240)"><circle r="40" fill="url(#g-glow)" class="flash" style="--d:3.4s"/>${fx('burst', { delay: 3.4, count: 80, speed: 160, dir: 160, spread: 60, pal: 'fire', life: 1.3, size: 6, drag: 1, streak: 0.03 })}</g>`;
     }
     const haze = w === 'venus' ? '<rect y="0" width="800" height="200" fill="#f3c36e" opacity=".15" filter="url(#f-blur)"/><path d="M600,20 L585,70 L600,70 L580,130" stroke="#fff4c0" stroke-width="2" fill="none" class="blink" style="--dur:2.6s"/>' : '';
-    return svg(`${sky}${haze}${ground}${body}${lines(info, 56, 40)}`);
+    return svg(`${sky}${haze}${w === 'mars' ? marsDust() : ''}${ground}${body}${lines(info, 56, 40)}`);
   };
 
   // ─── Roverlar
@@ -272,12 +296,17 @@
   S.rover = function (sc) {
     const w = sc.world, v = sc.v;
     const sky = w === 'mars' ? '<rect width="800" height="450" fill="url(#g-marssky)"/>' : stars(90, 49, [0, 0, 800, 320]) + `<g transform="translate(640,90)">${planet('earth', 0, 0, 30, { spin: 20 })}</g>`;
-    const move = v === 'rosalind' ? '' : 'class="move" style="--fx:-540px;--dur:4.8s;--d:.2s"';
+    const still = v === 'rosalind';
+    const move = still ? '' : 'class="drive" style="--fx:-540px;--dur:4.8s;--d:.2s"';
+    const k = v === 'sojourner' ? 1.4 : 1.25;
     let extra = '';
     if (v === 'sojourner') extra = `<g transform="translate(250,372)"><path d="M-40,0 L-20,-26 L20,-26 L40,0Z" fill="#b8c0cc"/><g fill="#f3efe4" opacity=".7"><circle cx="-34" cy="-6" r="10"/><circle cx="34" cy="-6" r="10"/></g><rect x="-10" y="-40" width="20" height="14" fill="url(#g-panel)"/></g>`;
-    if (sc.heli) extra += `<g transform="translate(560,220)"><g class="bob" style="--dur:3s;--by:-18px">${P.heli()}</g></g><ellipse cx="560" cy="392" rx="30" ry="5" fill="#000" opacity=".3"/>`;
-    return svg(`${sky}${P.ground(w, 362, 15)}<path d="M-20,388 L${v === 'rosalind' ? 0 : 360},388" stroke="#000" stroke-opacity=".25" stroke-width="3" stroke-dasharray="6 4" class="draw" style="--len:400;--dur:4.8s"/>${extra}
-      <g transform="translate(${v === 'lrv' ? 420 : 400},380)"><g ${move}><g transform="scale(${v === 'sojourner' ? 1.4 : 1.25})">${P.rover(v)}</g></g></g>
+    if (sc.heli) extra += `<g transform="translate(560,220)"><g class="bob" style="--dur:3s;--by:-18px">${P.heli()}</g></g><ellipse cx="560" cy="392" rx="30" ry="5" fill="#000" opacity=".3"/>${fx('dust', { rate: 12, world: 'mars', power: 0.45, size: 0.7 }, 560, 390)}`;
+    // Arka tekerlekten kalkan toz; tekerlekler taşa çarptıkça gövde sallanır
+    const dust = still ? '' : fx('dust', { delay: 0.3, dur: 4.6, rate: 26, world: w, power: 0.45, size: 0.7, side: -1, g: w === 'moon' ? 22 : 70 }, -50 * k, 0);
+    const body = still ? P.rover(v) : `<g class="bump" style="--d:.2s;animation-iteration-count:12">${P.rover(v)}</g>`;
+    return svg(`${sky}${w === 'mars' ? marsDust() : ''}${P.ground(w, 362, 15)}<path d="M-20,388 L${still ? 0 : 360},388" stroke="#000" stroke-opacity=".25" stroke-width="3" stroke-dasharray="6 4" class="draw" style="--len:400;--dur:4.8s"/>${extra}
+      <g transform="translate(${v === 'lrv' ? 420 : 400},380)"><g ${move}><g transform="scale(${k})">${body}</g>${dust}</g></g>
       ${v === 'rosalind' ? t(400, 250, 'beklemede', 'lbl-gold', 'text-anchor="middle"') : ''}${lines(ROVER_INFO[v] || [], 56, 40)}`);
   };
 
@@ -300,7 +329,8 @@
     if (sc.dock) {
       const cap = sc.dock === 'dragon' ? `<g transform="scale(-1.2,1.2)">${P.capsule('dragon', 'human')}</g>` : `<g transform="scale(1.1)">${P.capsule('soyuz', 'human')}</g>`;
       const x = v === 'iss' ? 590 : 560;
-      dock = `<g transform="translate(${x},190)"><g class="move" style="--fx:220px;--dur:3.6s;--d:.6s">${cap}</g></g>`;
+      // Yaklaşırken frenleme iticileri kısa kısa ateşlenir
+      dock = `<g transform="translate(${x},190)"><g class="move" style="--fx:220px;--dur:3.6s;--d:.6s">${cap}${fx('burst', { delay: 1.4, dur: 2.4, every: 0.7, count: 8, speed: 70, dir: 180, spread: 12, pal: 'white', life: 0.5, size: 3, size1: 9, drag: 2, a: 0.6 }, -24, -4)}</g></g>`;
     }
     const astro = sc.astronaut || sc.flag ? `<g transform="translate(560,110)"><g class="bob" style="--dur:7s"><g transform="rotate(20) scale(1.5)">${P.astronaut(1, { flag: sc.flag ? '#e30a17' : v === 'mir' ? '#c8102e' : '#3a5bd9' })}</g></g></g>` : '';
     return svg(`${stars(90, 51, [0, 0, 800, 330])}${earthArc(920, 600, 90)}<g transform="translate(400,190)"><g class="bob" style="--dur:9s;--by:-6px"><g transform="scale(${k})">${P.station(v)}</g></g></g>${dock}${astro}${lines(STATION_INFO[ev && ev.id] || STATION_INFO[v] || [])}`);
@@ -311,14 +341,17 @@
     if (sc.v === 'landing') {
       return svg(`${stars(40, 53, [0, 0, 800, 220])}<rect y="300" width="800" height="150" fill="#10183a"/><path d="M340,450 L390,300 L410,300 L460,450Z" fill="#2a3060"/><path d="M398,300 L398,450" stroke="#e8edf5" stroke-dasharray="10 12"/>
         <g transform="translate(400,318)"><g class="move" style="--fx:-420px;--fy:-240px;--dur:4s;--d:.2s"><g transform="rotate(4) scale(1.3)">${P.orbiter(1)}</g></g></g>
-        <g transform="translate(300,316)"><g class="grow" style="--d:4.2s;--o:100% 50%"><path d="M0,0 L-80,-18 L-80,18Z" fill="#f3efe4" opacity=".85"/></g></g>
+        <g transform="translate(300,316)"><g class="grow" style="--d:4.2s;--o:100% 50%"><path d="M0,0 L-80,-18 L-80,18Z" fill="#f3efe4" opacity=".85"/></g></g>${fx('dust', { delay: 3.7, dur: 0.6, rate: 60, world: 'earth', power: 0.8, side: -1, size: 0.8 }, 380, 350)}
         ${lines(['21 Temmuz 2011 · Atlantis', 'Space Shuttle programının son inişi', '30 yıl · 135 görev · en çok uçan: Discovery (39)'])}`);
     }
+    // Önce ana motorlar (0,7 sn), sonra katı yakıtlı iticiler (1,1 sn) ateşlenir; kalkış 1,5 sn
+    const ign = (d, s) => `<g class="ignite" style="--d:${d}s">${s}</g>`;
+    const srb = (x) => ign(1.1, P.flame(16, 90, x, 0, { diamonds: true })) + fx('exhaust', { delay: 1.1, dur: 9, ground: 384, size: 0.9, rate: 34 }, x, 4);
     const stack = sc.v === 'buran'
-      ? P.rocket('energia')
-      : `<g><rect x="-14" y="-230" width="28" height="230" fill="url(#g-orange)"/><path d="M-14,-230 Q0,-258 14,-230Z" fill="url(#g-orange)"/><g fill="url(#g-white)"><rect x="-30" y="-200" width="12" height="200"/><rect x="18" y="-200" width="12" height="200"/><path d="M-30,-200 L-24,-218 L-18,-200Z M18,-200 L24,-218 L30,-200Z"/></g><g transform="translate(46,-110)">${P.orbiter(1, true)}</g>${P.flame(16, 90, -24, 0)}${P.flame(16, 90, 24, 0)}${P.flame(12, 60, 46, -40)}</g>`;
+      ? P.rocket('energia', { ignite: 1.1, fx: { delay: 1.1, dur: 9, ground: 384 } })
+      : `<g><rect x="-14" y="-230" width="28" height="230" fill="url(#g-orange)"/><path d="M-14,-230 Q0,-258 14,-230Z" fill="url(#g-orange)"/><g fill="url(#g-white)"><rect x="-30" y="-200" width="12" height="200"/><rect x="18" y="-200" width="12" height="200"/><path d="M-30,-200 L-24,-218 L-18,-200Z M18,-200 L24,-218 L30,-200Z"/></g><g transform="translate(46,-110)">${P.orbiter(1, true)}</g>${srb(-24)}${srb(24)}${ign(0.7, P.flame(12, 60, 46, -40))}${fx('thrust', { delay: 0.7, dur: 9, rate: 30, size: 0.7 }, 46, -36)}</g>`;
     const info = sc.v === 'buran' ? ['15 Kasım 1988 · Baykonur', 'Buran ("kar fırtınası"): SSCB\'nin mekiği', 'İnsansız uçtu, piste otomatik indi · tek uçuş'] : ['12 Nisan 1981 · Columbia', 'Tekrar kullanılabilen ilk uzay aracı', 'Roket gibi kalkar, uçak gibi iner'];
-    return svg(`${stars(50, 55, [0, 0, 800, 300])}${pad()}${tower(460, 380, 250)}<g transform="translate(400,380)"><g class="go" style="--d:1.4s;--dur:5.5s;--ty:-760px"><g class="shake" style="--d:.8s">${stack}</g></g></g>${P.smoke(400, 384, 12, 11, 240)}${lines(info)}`);
+    return svg(`${stars(50, 55, [0, 0, 800, 300])}${pad()}${tower(460, 380, 250)}<g transform="translate(400,380)"><g class="go" style="--d:1.5s;--dur:5.5s;--ty:-760px"><g class="shake" style="--d:1.1s">${stack}${fx('light', { delay: 0.7, dur: 5, size: 320, a: 0.5, dy: 30 })}</g></g></g>${padFx(1.1, 3, 1.15)}${fxOn() ? '' : P.smoke(400, 384, 12, 11, 240)}${lines(info)}`);
   };
 
   // ─── Anma
@@ -326,7 +359,7 @@
     if (sc.v === 'plaque') {
       return svg(`${stars(110, 57, [0, 0, 800, 320])}<g transform="translate(660,90)">${planet('earth', 0, 0, 26, { spin: 20 })}</g>${P.ground('moon', 350, 3)}
         <g transform="translate(400,392)"><rect x="-70" y="-6" width="140" height="44" fill="#cfd6e4" transform="skewX(-20)"/>${[0, 1, 2, 3].map((i) => `<rect x="${-56 - i * 2}" y="${2 + i * 8}" width="110" height="3" fill="#5a6272" transform="skewX(-20)"/>`).join('')}<g transform="translate(-100,0) rotate(-80) scale(.7)">${P.astronaut(1, { suit: '#d9dde6' })}</g></g>
-        ${lines(['1971 · Apollo 15 mürettebatı bıraktı', 'Plaket ve "Düşen Astronot" heykelciği Ay\'da', 'Vladimir Komarov (Soyuz 1, 1967): uzay uçuşunda ilk kayıp'])}`);
+        ${fx('drift', { area: [260, 300, 280, 80], rate: 3, vy: -6, pal: 'gold', size: 1, a: 0.35 })}${lines(['1971 · Apollo 15 mürettebatı bıraktı', 'Plaket ve "Düşen Astronot" heykelciği Ay\'da', 'Vladimir Komarov (Soyuz 1, 1967): uzay uçuşunda ilk kayıp'])}`);
     }
     const crew = sc.v === 'shuttle'
       ? ['Dick Scobee', 'Michael Smith', 'Judith Resnik', 'Ellison Onizuka', 'Ronald McNair', 'Gregory Jarvis', 'Christa McAuliffe']
@@ -337,7 +370,7 @@
       const x = 130 + i * 90, y = 170 + (i % 2) * 40;
       s += `<g transform="translate(${x},${y})"><g class="pop" style="--d:${0.6 + i * 0.35}s"><circle r="12" fill="url(#g-wglow)"/><circle r="2.6" fill="#fff" class="twinkle" style="--dur:4s;--d:${i * 0.4}s"/></g></g><g class="fade" style="--d:${0.8 + i * 0.35}s">${t(x, y + 32, n, 'lbl-s', 'text-anchor="middle"')}</g>`;
     });
-    return svg(`${stars(60, 59)}${s}${lines(head, 400, 330, 'middle', 3)}`);
+    return svg(`${stars(60, 59)}${s}${fx('drift', { area: [80, 120, 640, 160], rate: 5, vy: -8, pal: 'gold', size: 1.2, a: 0.4 })}${lines(head, 400, 330, 'middle', 3)}`);
   };
 
   // ─── Uzay teleskopları
@@ -419,7 +452,7 @@
 
   S.sail = function () {
     return svg(`${stars(110, 73)}${planet('earth', 90, 300, 60, { spin: 20 })}<g stroke="#ff8075" stroke-opacity=".5" stroke-width="2">${[0, 1, 2].map((i) => `<line x1="${120 + i * 6}" y1="${250 - i * 4}" x2="480" y2="180" class="draw" style="--len:400;--d:${i * 0.2}s"/>`).join('')}</g>
-      <g transform="translate(480,180)"><g class="move" style="--tx:180px;--ty:-40px;--dur:6s;--d:1.2s"><rect x="-30" y="-30" width="60" height="60" fill="#dfe6ff" fill-opacity=".35" stroke="#dfe6ff" transform="rotate(20)"/><circle r="3" fill="#fff"/></g></g>${P.glowDot(740, 90, 4, '#ffe7a8', 'twinkle')}${t(740, 120, 'Alfa Centauri · 4,37 ışık yılı', 'lbl-s', 'text-anchor="middle"')}
+      ${fx('stream', { delay: 0.5, dur: 1.4, from: [126, 248], to: [478, 181], width: 6, speed: 520, rate: 40, pal: 'ember', size: 0.7 })}<g transform="translate(480,180)"><g class="move" style="--tx:180px;--ty:-40px;--dur:6s;--d:1.2s"><rect x="-30" y="-30" width="60" height="60" fill="#dfe6ff" fill-opacity=".35" stroke="#dfe6ff" transform="rotate(20)"/><circle r="3" fill="#fff"/>${fx('light', { delay: 0.6, dur: 7, size: 90, a: 0.4, pal: 'white' })}${fx('trail', { delay: 1.2, pal: 'white', rate: 16, size: 0.5, life: 1 })}</g></g>${P.glowDot(740, 90, 4, '#ffe7a8', 'twinkle')}${t(740, 120, 'Alfa Centauri · 4,37 ışık yılı', 'lbl-s', 'text-anchor="middle"')}
       ${lines(['2016 · iki cesur fikir', 'Asgardia: kendini "uzay ülkesi" ilan eden topluluk', 'Uzay yelkenlisi: lazerle itilen ışık yelkeni'], 56, 40)}`);
   };
 
@@ -429,24 +462,24 @@
     if (sc.v === 'impact') {
       return svg(`${stars(100, 79)}<g transform="translate(560,220)"><g class="spin" style="--dur:30s"><polygon points="${poly(80, 16)}" fill="url(#g-rock)"/></g></g>
         <g><animateMotion path="${P.orbitPath(560, 220, 150, 50)}" dur="14s" begin="-9s" repeatCount="indefinite"/><polygon points="${poly(16, 10)}" fill="#8a7f72"/></g>
-        <g transform="translate(-40,150)"><g class="move-in" style="--tx:480px;--ty:30px;--dur:3s;--d:.2s"><g class="fade-out" style="--d:3.1s;--dur:.1s">${P.probe('generic', 0.7)}</g></g></g>
-        <g transform="translate(440,180)"><circle r="40" fill="url(#g-glow)" class="flash" style="--d:3.1s"/>${Array.from({ length: 14 }, (_, i) => `<circle r="2" fill="#dcd2c4" class="move" style="--tx:${(-60 - i * 6).toFixed(0)}px;--ty:${((i - 7) * 8).toFixed(0)}px;--fo:0;--dur:2.4s;--d:3.2s"/>`).join('')}</g>
+        <g transform="translate(-40,150)"><g class="move-in" style="--tx:480px;--ty:30px;--dur:3s;--d:.2s"><g class="fade-out" style="--d:3.1s;--dur:.1s">${P.probe('generic', 0.7)}</g>${fx('trail', { delay: 0.3, dur: 2.8, pal: 'ion', rate: 34, size: 0.5, life: 0.6 })}</g></g>
+        <g transform="translate(440,180)"><circle r="40" fill="url(#g-glow)" class="flash" style="--d:3.1s"/>${fx('burst', { delay: 3.1, count: 150, speed: 170, dir: 180, spread: 70, pal: 'moon', add: false, life: 3.2, size: 5, size1: 18, drag: 0.45, a: 0.7 })}${fx('burst', { delay: 3.1, count: 60, speed: 320, dir: 190, spread: 80, pal: 'white', life: 0.8, streak: 0.04, size: 3, size1: 1.5, drag: 0.3 })}${fx('flash', { delay: 3.1, dur: 0.6, a: 0.45 })}${fx('shake', { delay: 3.1, dur: 0.9, amp: 4 })}${Array.from({ length: 14 }, (_, i) => `<circle r="2" fill="#dcd2c4" class="move" style="--tx:${(-60 - i * 6).toFixed(0)}px;--ty:${((i - 7) * 8).toFixed(0)}px;--fo:0;--dur:2.4s;--d:3.2s"/>`).join('')}</g>
         ${lines(['26 Eylül 2022 · NASA DART', 'Didymos\'un uydusu Dimorphos\'a 22.000 km/sa çarptı', 'Yörünge 32 dakika kısaldı · ESA Hera inceleyecek'], 56, 380)}`);
     }
     const info = ev && ev.id === 'osirisrex' ? ['2016\'da fırlatıldı · Bennu (NASA)', 'OSIRIS-REx yüzeye dokunup örnek aldı (2020)', 'Örnek kapsülü Eylül 2023\'te Utah\'a indi'] : ['2014\'te fırlatıldı · Ryugu (JAXA)', 'Hayabusa 2 yüzeye mermi atıp krater açtı', 'Örnekler Aralık 2020\'de Avustralya\'ya indi'];
     return svg(`${stars(100, 81)}<g transform="translate(540,240)"><g class="spin" style="--dur:40s"><polygon points="${poly(120, 18)}" fill="url(#g-rock)"/>${[0, 1, 2, 3].map((i) => `<circle cx="${(R() - 0.5) * 120}" cy="${(R() - 0.5) * 120}" r="${6 + R() * 10}" fill="#000" opacity=".2"/>`).join('')}</g></g>
-      <g transform="translate(400,110)"><g class="move" style="--tx:40px;--ty:30px;--dur:2s;--d:.4s;animation-direction:alternate;animation-iteration-count:2">${P.probe('generic', 0.9)}<line x1="0" y1="10" x2="0" y2="40" stroke="#cfd6e4" stroke-width="2"/></g></g>
+      <g transform="translate(400,110)"><g class="move" style="--tx:40px;--ty:30px;--dur:2s;--d:.4s;animation-direction:alternate;animation-iteration-count:2">${P.probe('generic', 0.9)}<line x1="0" y1="10" x2="0" y2="40" stroke="#cfd6e4" stroke-width="2"/></g></g>${fx('burst', { delay: 2.35, count: 70, speed: 80, dir: -110, spread: 60, pal: 'moon', add: false, life: 2.6, size: 3, size1: 9, drag: 0.25, a: 0.75 }, 440, 182)}
       ${planet('earth', 90, 360, 22, { spin: 20 })}<path d="M380,140 Q220,200 100,340" fill="none" stroke="#e8b45a" stroke-dasharray="3 6" class="draw" style="--len:400;--d:3s"/>${lines(info)}`);
   };
 
   S.blackhole = function () {
     const R = P.rng(83);
     let parts = '';
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < (fxOn() ? 30 : 80); i++) {
       const a = R() * 2 * PI, rr = 90 + R() * 70;
       parts += `<circle cx="${(cos(a) * rr).toFixed(1)}" cy="${(sin(a) * rr).toFixed(1)}" r="${(0.8 + R() * 1.5).toFixed(1)}" fill="#ffc98a" opacity=".6"/>`;
     }
-    return svg(`${stars(90, 85)}<g transform="translate(400,215)"><g>${spin(0, 0, 18)}${parts}</g><g filter="url(#f-blur)"><circle r="100" fill="none" stroke="#ff9a3d" stroke-width="36" opacity=".75"/><path d="M-90,40 A100,100 0 0,0 90,40" fill="none" stroke="#ffe1a8" stroke-width="30" opacity=".85"/></g><circle r="78" fill="#000"/><circle r="84" fill="none" stroke="#fff4d8" stroke-width="1.5" opacity=".6"/></g>
+    return svg(`${stars(90, 85)}<g transform="translate(400,215)"><g>${spin(0, 0, 18)}${parts}</g><g filter="url(#f-blur)"><circle r="100" fill="none" stroke="#ff9a3d" stroke-width="36" opacity=".75"/><path d="M-90,40 A100,100 0 0,0 90,40" fill="none" stroke="#ffe1a8" stroke-width="30" opacity=".85"/></g><circle r="78" fill="#000"/><circle r="84" fill="none" stroke="#fff4d8" stroke-width="1.5" opacity=".6"/></g>${fx('vortex', { cx: 400, cy: 215, r0: 250, r1: 92, tilt: 0.28, rate: 80, w: 0.6, shrink: 26, heat: true, hole: [400, 215, 82], pal: 'infall', size: 0.9, a: 0.6 })}
       ${lines(['10 Nisan 2019 · Olay Ufku Teleskobu', 'M87 gökadasındaki kara deliğin gölgesi', 'Mimarlarından: Feryal Özel · ışık bile kaçamaz'], 56, 380)}`);
   };
 
@@ -464,8 +497,8 @@
     });
     return svg(`${s}<rect x="0" y="344" width="800" height="10" fill="#7fd4ff" opacity=".25" class="glowp"/><line x1="0" y1="225" x2="800" y2="225" stroke="#e8b45a" stroke-width="2" stroke-dasharray="8 6"/>${t(20, 218, 'Kármán hattı · 100 km: uzayın başlangıcı', 'lbl-gold')}
       <path d="M300,180 q30,-40 60,0 t60,0 t60,0" stroke="#5fd49a" stroke-width="6" fill="none" opacity=".4" class="glowp"/><g>${P.motion('M60,150 L760,150', 8)}<circle r="3" fill="#fff"/><text x="8" y="-6" class="lbl-s">ISS ~420 km</text></g>
-      <path d="M300,262 l40,26" stroke="#ffcf6b" stroke-width="2" class="blink" style="--dur:2s"/><g transform="translate(160,410)"><path d="M-16,0 L16,-2 L20,0 L16,2Z M-4,0 L-10,8 L-4,8 L2,0Z" fill="#e8edf5"/></g><g transform="translate(240,330)"><circle r="9" fill="#f3efe4"/><line x1="0" y1="9" x2="0" y2="22" stroke="#f3efe4"/></g>
-      <g transform="translate(420,430)"><g class="go" style="--d:.8s;--dur:5s;--ty:-470px"><g transform="scale(.35)">${P.rocket('falcon9')}</g></g></g>`);
+      <path d="M300,262 l40,26" stroke="#ffcf6b" stroke-width="2" class="blink" style="--dur:2s"/>${fx('meteors', { area: [0, 250, 800, 50], min: 0.5, max: 1.5 })}<g transform="translate(160,410)"><path d="M-16,0 L16,-2 L20,0 L16,2Z M-4,0 L-10,8 L-4,8 L2,0Z" fill="#e8edf5"/></g><g transform="translate(240,330)"><circle r="9" fill="#f3efe4"/><line x1="0" y1="9" x2="0" y2="22" stroke="#f3efe4"/></g>
+      <g transform="translate(420,430)"><g class="go" style="--d:.8s;--dur:5s;--ty:-470px"><g transform="scale(.35)">${P.rocket('falcon9', { ignite: 0.4, fx: { delay: 0.4, dur: 5.4, size: 0.32, power: 0.45, rate: 40 } })}</g></g></g>`);
   };
 
   S.emblem = function (sc) {
@@ -492,8 +525,8 @@
   S.future = function () {
     const gmt = [[0, 0], [0, -30], [26, -15], [26, 15], [0, 30], [-26, 15], [-26, -15]].map(([x, y], i) => `<g transform="translate(${x},${y})"><g class="pop" style="--d:${0.3 + i * 0.1}s"><circle r="13" fill="url(#g-metal)"/></g></g>`).join('');
     return svg(`${stars(110, 91)}<g transform="translate(160,200)">${gmt}</g>${t(160, 266, 'Dev Macellan Teleskobu (GMT)', 'lbl-s', 'text-anchor="middle"')}${t(160, 284, '7 ayna · 24,5 m', 'lbl-s lbl-gold', 'text-anchor="middle"')}
-      <g transform="translate(430,150)"><g class="bob">${P.sat('geo', 1.2)}</g></g><path d="M430,170 L410,345 L450,345Z" fill="#ffcf6b" opacity=".18" class="glowp"/>${t(430, 118, 'Uzaydan güneş enerjisi (ESA Solaris)', 'lbl-s', 'text-anchor="middle"')}
-      ${earthArc(980, 620, 80)}<g transform="translate(650,320)"><g class="go" style="--d:1.4s;--dur:4s;--ty:-420px"><g transform="scale(.45)">${P.rocket('default')}</g></g></g>${t(650, 350, 'ŞİMŞEK · ASELSAN · 2027', 'lbl-s', 'text-anchor="middle"')}
+      <g transform="translate(430,150)"><g class="bob">${P.sat('geo', 1.2)}</g></g><path d="M430,170 L410,345 L450,345Z" fill="#ffcf6b" opacity=".18" class="glowp"/>${fx('stream', { from: [430, 172], to: [430, 342], width: 16, speed: 150, rate: 16, pal: 'gold', size: 0.8 })}${t(430, 118, 'Uzaydan güneş enerjisi (ESA Solaris)', 'lbl-s', 'text-anchor="middle"')}
+      ${earthArc(980, 620, 80)}<g transform="translate(650,320)"><g class="go" style="--d:1.4s;--dur:4s;--ty:-420px"><g transform="scale(.45)">${P.rocket('default', { ignite: 1, fx: { delay: 1, dur: 4.4, size: 0.42, power: 0.5, rate: 40, ground: 324 } })}</g></g></g>${t(650, 350, 'ŞİMŞEK · ASELSAN · 2027', 'lbl-s', 'text-anchor="middle"')}
       <g transform="translate(700,90)"><g class="spin" style="--dur:20s"><polygon points="-20,-8 -6,-20 14,-16 22,2 10,18 -12,16" fill="url(#g-rock)"/></g></g>${t(700, 130, 'uzay madenciliği', 'lbl-s', 'text-anchor="middle"')}
       ${lines(['2025 ve sonrası', 'Roman (WFIRST) uzay teleskobu · Ariel (ESA, 2028)', 'Çin\'in "yapay Ay" planı · Türkiye: Ay hedefi'])}`);
   };

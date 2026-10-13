@@ -66,7 +66,8 @@
   const sky = (function () {
     const c = $('#sky');
     const ctx = c.getContext('2d');
-    let W = 0, H = 0, stars = [], v = 0.0009, target = 0.0009, dir = 1, raf = 0;
+    let W = 0, H = 0, stars = [], v = 0.0009, target = 0.0009, dir = 1, raf = 0, warpHue = null;
+    let shoot = null, nextShoot = 4000;
     function resize() {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       W = c.clientWidth; H = c.clientHeight;
@@ -77,12 +78,14 @@
       s.x = Math.random() * 2 - 1; s.y = Math.random() * 2 - 1;
       s.z = far ? 1 : 0.02 + Math.random() * 0.98;
       s.pz = s.z; s.h = Math.random() < 0.2 ? 32 + Math.random() * 20 : Math.random() < 0.3 ? 210 : 230;
+      s.c = Math.random() < 0.55;
     }
     function init() {
       const n = Math.round(clamp((W * H) / 2600, 180, 520));
       stars = Array.from({ length: n }, () => { const s = {}; reset(s); return s; });
     }
-    function draw() {
+    function draw(ts) {
+      ts = ts || 0;
       v += (target - v) * 0.06;
       const warp = v > 0.004;
       ctx.fillStyle = warp ? 'rgba(6,9,21,0.32)' : '#060915';
@@ -107,12 +110,33 @@
         const a = Math.min(1, (1 - s.z) * 1.3);
         if (warp) {
           const px = cx + (s.x / s.pz) * f * 0.35, py = cy + (s.y / s.pz) * f * 0.35;
-          ctx.strokeStyle = `hsla(${s.h},80%,85%,${a})`;
-          ctx.lineWidth = r;
+          const hue = s.c && warpHue !== null ? warpHue : s.h;
+          ctx.strokeStyle = `hsla(${hue},${s.c ? 90 : 70}%,${s.c ? 72 : 88}%,${a})`;
+          ctx.lineWidth = r * 1.15;
           ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke();
         } else {
           ctx.fillStyle = `hsla(${s.h},70%,90%,${a * 0.9})`;
           ctx.beginPath(); ctx.arc(x, y, r * 0.8, 0, 6.283); ctx.fill();
+        }
+      }
+      // Kayan yıldız
+      if (!warp && !reduced) {
+        if (!shoot && ts > nextShoot) {
+          const l = Math.random() < 0.5;
+          shoot = { x: W * (0.15 + Math.random() * 0.7), y: H * (0.04 + Math.random() * 0.3), a: (l ? 155 : 25) * Math.PI / 180 + (Math.random() - 0.5) * 0.3, t: ts, d: 650 + Math.random() * 300 };
+          nextShoot = ts + 7000 + Math.random() * 9000;
+        }
+        if (shoot) {
+          const k = (ts - shoot.t) / shoot.d;
+          if (k >= 1) shoot = null;
+          else {
+            const dist = k * Math.min(W, 900) * 0.5, len = 110 * Math.sin(Math.PI * k);
+            const hx = shoot.x + Math.cos(shoot.a) * dist, hy = shoot.y + Math.sin(shoot.a) * dist;
+            const gr = ctx.createLinearGradient(hx, hy, hx - Math.cos(shoot.a) * len, hy - Math.sin(shoot.a) * len);
+            gr.addColorStop(0, `rgba(255,250,235,${0.9 * Math.sin(Math.PI * k)})`); gr.addColorStop(1, 'rgba(255,250,235,0)');
+            ctx.strokeStyle = gr; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx - Math.cos(shoot.a) * len, hy - Math.sin(shoot.a) * len); ctx.stroke();
+          }
         }
       }
       raf = requestAnimationFrame(draw);
@@ -124,18 +148,30 @@
     document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
     if (reduced) { target = v = 0; draw(); stop(); } else start();
     return {
-      warp(d, ms = 1100) {
+      warp(d, ms = 1100, hue = null) {
         if (reduced) return;
-        dir = d; target = 0.032;
-        setTimeout(() => { target = 0.0009; }, ms);
+        dir = d; target = 0.034; warpHue = hue;
+        clearTimeout(this.t);
+        this.t = setTimeout(() => { target = 0.0009; }, ms);
       },
     };
   })();
 
+  const rootStyle = getComputedStyle(document.documentElement);
+  function eraHue(id) {
+    const hex = rootStyle.getPropertyValue(`--era-${id}`).trim().replace('#', '');
+    if (hex.length !== 6) return null;
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (!d) return 0;
+    const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return Math.round(h * 60 + 360) % 360;
+  }
+
   // ─── DOM
   const el = {
     stage: $('#stage'), viewport: $('#viewport'), scene: $('#scene'), info: $('#info'),
-    year: $('#year'), eraName: $('#eraName'), title: $('#evTitle'),
+    year: $('#year'), eraName: $('#eraName'), title: $('#evTitle'), tint: $('#warpTint'),
     prev: $('#prevBtn'), next: $('#nextBtn'), play: $('#playBtn'),
     eraRow: $('#eraRow'), track: $('#track'), trackLeft: $('#trackLeft'), trackRight: $('#trackRight'),
     mastery: $('#mastery'), brandSub: $('#brandSub'),
@@ -155,8 +191,9 @@
   let autoTimer = 0;
 
   // ─── Sahne
-  function renderScene(ev) {
+  function renderScene(ev, d = 1) {
     if (sceneCleanup) { try { sceneCleanup(); } catch (e) { /* yok say */ } sceneCleanup = null; }
+    if (window.FX) window.FX.detach();
     const def = window.SCENES[ev.scene.type];
     let html = '';
     try {
@@ -164,9 +201,14 @@
     } catch (e) {
       console.error('Sahne çizilemedi:', ev.id, e);
     }
-    el.scene.classList.remove('leaving');
-    el.scene.innerHTML = html;
-    if (def && def.run && !reduced) sceneCleanup = def.run(el.scene);
+    // Gökyüzü dolu sahnelerde rengi sahnenin çevresine hafifçe taşır, sahne kutu gibi durmaz
+    const amb = ev.scene.type === 'atmosphere' ? '#2a4bb0' : { mars: '#b8532c', venus: '#c98d3a' }[ev.scene.world] || '';
+    if (amb) el.viewport.style.setProperty('--amb', amb);
+    el.viewport.classList.toggle('amb', !!amb);
+    el.scene.innerHTML = `<div class="shot ${reduced ? '' : d > 0 ? 'enter-f' : 'enter-b'}"><div class="cam">${html}</div></div>`;
+    const shot = el.scene.firstElementChild;
+    if (def && def.run && !reduced) sceneCleanup = def.run(shot);
+    if (window.FX) window.FX.attach(shot);
     const s = el.scene.querySelector('svg');
     if (s && reduced && s.pauseAnimations) s.pauseAnimations();
   }
@@ -190,7 +232,12 @@
       const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
       el.year.textContent = fmtYear(fromT(a + (b - a) * e));
       if (k < 1) yearAnim = requestAnimationFrame(step);
-      else { el.year.textContent = yearOf(to); el.year.classList.remove('travelling'); }
+      else {
+        el.year.textContent = yearOf(to);
+        el.year.classList.remove('travelling', 'lock');
+        void el.year.offsetWidth;
+        el.year.classList.add('lock');
+      }
     };
     yearAnim = requestAnimationFrame(step);
   }
@@ -285,14 +332,16 @@
     }
     const far = Math.abs(evIndex[from.id] - i) > 1 || eraOrder[from.era] !== eraOrder[to.era];
     const ms = far ? 1300 : 900;
-    sky.warp(d, ms);
+    sky.warp(d, ms, eraHue(to.era));
+    el.tint.classList.remove('on'); void el.tint.offsetWidth; el.tint.classList.add('on');
     el.eraName.textContent = eraById[to.era].name;
     el.viewport.style.setProperty('--era-color', `var(--era-${to.era})`);
     el.title.textContent = to.title;
     tweenYear(from, to, ms);
-    el.scene.classList.add('leaving');
+    const old = el.scene.querySelector('.shot');
+    if (old) { old.classList.remove('enter-f', 'enter-b'); old.classList.add(d > 0 ? 'exit-f' : 'exit-b'); }
     clearTimeout(go.t);
-    go.t = setTimeout(() => { renderScene(to); setStamp(to); }, Math.min(420, ms * 0.4));
+    go.t = setTimeout(() => { renderScene(to, d); setStamp(to); }, Math.min(430, ms * 0.42));
     renderInfo(to, true);
   }
 

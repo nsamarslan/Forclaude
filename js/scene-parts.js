@@ -22,6 +22,17 @@
   P.spin = (cx, cy, dur, rev) => `<animateTransform attributeName="transform" type="rotate" from="${rev ? 360 : 0} ${cx} ${cy}" to="${rev ? 0 : 360} ${cx} ${cy}" dur="${dur}s" repeatCount="indefinite"/>`;
   P.orbitPath = (cx, cy, rx, ry) => `M${cx - rx},${cy} a${rx},${ry} 0 1,0 ${2 * rx},0 a${rx},${ry} 0 1,0 ${-2 * rx},0`;
   P.motion = (path, dur, begin = 0, extra = '') => `<animateMotion path="${path}" dur="${dur}s" begin="${begin}s" repeatCount="indefinite" ${extra}/>`;
+  // Efekt işaretçisi (js/fx.js okur). Konumu: bulunduğu grubun (0,0) noktası ya da x,y
+  P.fx = (type, o = {}, x = 0, y = 0) => `<circle cx="${x}" cy="${y}" r=".5" fill="none" data-fx="${type}" data-fx-o='${JSON.stringify(o)}'/>`;
+  // Eğik yörüngede derinlik: arkadayken gezegenin arkasında, öndeyken önünde ve büyük
+  P.orbit3d = function (o) {
+    const { cx, cy, rx, ry, dur, begin = 0, body, depth = 0.2 } = o;
+    const path = P.orbitPath(cx, cy, rx, ry);
+    const anim = `<animateTransform attributeName="transform" type="scale" values="1;${1 + depth};1;${1 - depth};1" keyTimes="0;.25;.5;.75;1" calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1;.4 0 .6 1;.4 0 .6 1" dur="${dur}s" begin="${begin}s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;1;1;.72;1" keyTimes="0;.25;.5;.75;1" dur="${dur}s" begin="${begin}s" repeatCount="indefinite"/>`;
+    const obj = `<g>${P.motion(path, dur, begin)}<g>${anim}${body}</g></g>`;
+    const id = P.uid('of');
+    return { back: obj, front: `<clipPath id="${id}"><rect x="-400" y="${cy}" width="1600" height="900"/></clipPath><g clip-path="url(#${id})">${obj}</g>` };
+  };
 
   P.DEFS = `<defs>
   <radialGradient id="g-sun" cx="45%" cy="42%" r="60%"><stop offset="0" stop-color="#fffbe6"/><stop offset=".35" stop-color="#ffe08a"/><stop offset=".75" stop-color="#ffa53d"/><stop offset="1" stop-color="#f06a24"/></radialGradient>
@@ -64,6 +75,13 @@
   <linearGradient id="g-mx" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000"/><stop offset=".06" stop-color="#fff"/><stop offset=".94" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient>
   <linearGradient id="g-my" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000"/></linearGradient>
   <mask id="m-edge" maskUnits="userSpaceOnUse" x="0" y="0" width="800" height="450"><rect width="800" height="450" fill="url(#g-mx)"/><rect y="405" width="800" height="45" fill="url(#g-my)"/><rect width="800" height="16" fill="url(#g-my)" transform="rotate(180 400 8)"/></mask>
+  <linearGradient id="g-flame-outer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd98a" stop-opacity=".95"/><stop offset=".3" stop-color="#ff9a44" stop-opacity=".85"/><stop offset=".7" stop-color="#ff5222" stop-opacity=".45"/><stop offset="1" stop-color="#ff2a10" stop-opacity="0"/></linearGradient>
+  <linearGradient id="g-flame-core" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#fff4c8" stop-opacity=".9"/><stop offset="1" stop-color="#ffd27a" stop-opacity="0"/></linearGradient>
+  ${[['earth', '#a4d8ff'], ['venus', '#fff0c4'], ['mars', '#ffb890'], ['jupiter', '#ffeacc'], ['saturn', '#fff2cc'], ['uranus', '#e4feff'], ['neptune', '#acc6ff'], ['young', '#ffb35c']].map(([k, c]) => `<radialGradient id="g-rim-${k}"><stop offset=".7" stop-color="${c}" stop-opacity="0"/><stop offset=".93" stop-color="${c}" stop-opacity=".32"/><stop offset="1" stop-color="${c}" stop-opacity=".7"/></radialGradient>`).join('')}
+  <radialGradient id="g-nightmask" cx="30%" cy="30%" r="80%"><stop offset=".52" stop-color="#000"/><stop offset=".86" stop-color="#fff"/></radialGradient>
+  <radialGradient id="g-gran"><stop offset="0" stop-color="#fff6d0" stop-opacity=".55"/><stop offset="1" stop-color="#fff6d0" stop-opacity="0"/></radialGradient>
+  <radialGradient id="g-spot"><stop offset="0" stop-color="#9a3a10" stop-opacity=".45"/><stop offset="1" stop-color="#9a3a10" stop-opacity="0"/></radialGradient>
+  <linearGradient id="g-glint" gradientUnits="userSpaceOnUse" x1="-500" y1="0" x2="-380" y2="80"><animate attributeName="x1" values="-500;500" dur="5.5s" repeatCount="indefinite"/><animate attributeName="x2" values="-380;620" dur="5.5s" repeatCount="indefinite"/><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
   <filter id="f-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
   <filter id="f-soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2"/></filter>
   <filter id="f-big" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="16"/></filter>
@@ -93,20 +111,30 @@
     'M60,30 C80,24 104,36 100,58 C96,78 70,80 62,62 C56,50 48,36 60,30Z',
     'M-10,70 C8,64 30,72 26,84 C22,96 -2,96 -12,86Z',
   ];
-  function earthSurface(r, spin) {
+  const CITY = [[-130, -30], [-112, -8], [-122, 22], [-104, 36], [-40, -60], [-22, -48], [-52, -18], [-30, 10], [-42, 40], [-26, 26], [60, -50], [88, -40], [110, -22], [72, -10], [120, -48], [96, -56], [70, 46], [86, 60], [4, 80], [-60, -40]];
+  function earthSurface(r, spin, id) {
     const k = r > 200 ? r / 300 : r / 100;
     const R = r / k; // birim uzayda yarıçap
-    const conts = CONT.map((d) => `<path d="${d}" fill="#3f9e63"/>`).join('');
-    const clouds = '<path d="M-140,-10 q20,-8 40,0 q20,8 40,0" stroke="#fff" stroke-opacity=".55" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M20,30 q24,-8 48,0" stroke="#fff" stroke-opacity=".5" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M-60,-80 q30,-6 60,2" stroke="#fff" stroke-opacity=".45" stroke-width="6" fill="none" stroke-linecap="round"/>';
+    const conts = CONT.map((d) => `<path d="${d}" fill="#3f9e63"/>`).join('') + '<path d="M44,-56 C70,-70 100,-60 110,-44 C96,-50 70,-52 52,-44Z" fill="#c9b27a" opacity=".55"/><path d="M-46,-62 C-30,-72 -10,-64 -12,-52 C-26,-58 -38,-56 -46,-62Z" fill="#2f7f4f"/>';
+    const clouds = '<path d="M-140,-10 q20,-8 40,0 q20,8 40,0" stroke="#fff" stroke-opacity=".6" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M20,30 q24,-8 48,0 q14,6 26,0" stroke="#fff" stroke-opacity=".55" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M-60,-80 q30,-6 60,2" stroke="#fff" stroke-opacity=".5" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M90,10 q18,-10 36,-2" stroke="#fff" stroke-opacity=".45" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M-100,60 q26,-6 52,4" stroke="#fff" stroke-opacity=".45" stroke-width="5" fill="none" stroke-linecap="round"/>';
+    const lights = CITY.map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${1.2 + (i % 3) * 0.6}" fill="#ffd27a"/>`).join('');
     const m = Math.ceil(R / 320) + 1;
-    let strip = '';
+    let land = '', sky = '', night = '';
     for (let j = -m; j <= m + 1; j++) {
       const band = R > 150 ? [-R * 0.9, -R * 0.62, -R * 0.3, R * 0.1] : [0];
-      band.forEach((dy, bi) => { strip += `<g transform="translate(${j * 320 + bi * 110},${dy.toFixed(0)})">${conts}${clouds}</g>`; });
+      band.forEach((dy, bi) => {
+        const tr = `translate(${j * 320 + bi * 110},${dy.toFixed(0)})`;
+        land += `<g transform="${tr}">${conts}</g>`;
+        sky += `<g transform="${tr}">${clouds}</g>`;
+        night += `<g transform="${tr}">${lights}</g>`;
+      });
     }
-    const anim = spin ? `<animateTransform attributeName="transform" type="translate" from="0 0" to="-320 0" dur="${spin}s" repeatCount="indefinite"/>` : '';
+    const anim = (d) => (d ? `<animateTransform attributeName="transform" type="translate" from="0 0" to="-320 0" dur="${d}s" repeatCount="indefinite"/>` : '');
     const caps = R > 150 ? '' : `<ellipse cx="0" cy="${(-R * 0.94).toFixed(0)}" rx="${(R * 0.6).toFixed(0)}" ry="${(R * 0.14).toFixed(0)}" fill="#eef6ff" opacity=".85"/><ellipse cx="0" cy="${(R * 0.95).toFixed(0)}" rx="${(R * 0.7).toFixed(0)}" ry="${(R * 0.12).toFixed(0)}" fill="#eef6ff" opacity=".85"/>`;
-    return `<g transform="scale(${k})"><g>${anim}${strip}</g>${caps}</g>`;
+    const glint = R > 150 ? '' : `<ellipse cx="${-R * 0.38}" cy="${-R * 0.36}" rx="${R * 0.26}" ry="${R * 0.16}" fill="#fff" opacity=".16" transform="rotate(-35 ${-R * 0.38} ${-R * 0.36})" filter="url(#f-soft)"/>`;
+    const mid = `${id}n`;
+    const city = r >= 50 && R <= 150 ? `<mask id="${mid}" maskUnits="userSpaceOnUse" x="${-R}" y="${-R}" width="${2 * R}" height="${2 * R}"><circle r="${R}" fill="url(#g-nightmask)"/></mask>` : '';
+    return `<g transform="scale(${k})"><g>${anim(spin)}${land}</g>${glint}<g>${anim(spin ? spin * 0.62 : 0)}${sky}</g>${caps}</g>${city ? `<g transform="scale(${k})">${city}</g>` : ''}` + (city ? `<g transform="scale(${k})" mask="url(#${mid})"><g>${anim(spin)}${night}</g></g>` : '');
   }
   function craters(r, n, seed, col = '#000') {
     const R = P.rng(seed);
@@ -129,16 +157,30 @@
     const id = P.uid('pc');
     let feat = '';
     switch (kind) {
-      case 'earth': feat = earthSurface(r, o.spin === undefined ? 30 : o.spin); break;
+      case 'earth': feat = earthSurface(r, o.spin === undefined ? 30 : o.spin, id); break;
       case 'young': feat = `<g opacity=".7" stroke="#ffd27a" stroke-width="${Math.max(1, r / 40)}" fill="none"><path d="M${-r * 0.6},${-r * 0.2} l${r * 0.3},${r * 0.1} l${r * 0.2},${r * 0.3}"/><path d="M${r * 0.1},${-r * 0.6} l${r * 0.2},${r * 0.3} l${r * 0.3},0"/><path d="M${-r * 0.2},${r * 0.4} l${r * 0.4},${r * 0.1}"/></g>`; break;
       case 'moon': case 'mercury': feat = craters(r, 14, kind === 'moon' ? 3 : 11); break;
       case 'rock': feat = craters(r, 8, 5); break;
       case 'mars': feat = `<path d="M${-r},${-r * 0.1} q${r * 0.5},${-r * 0.3} ${r},${-r * 0.05} t${r},${r * 0.1}" stroke="#5a1d0c" stroke-opacity=".35" stroke-width="${r * 0.18}" fill="none"/><path d="M${-r * 0.5},${r * 0.35} q${r * 0.4},${-r * 0.1} ${r * 0.9},${r * 0.05}" stroke="#5a1d0c" stroke-opacity=".28" stroke-width="${r * 0.12}" fill="none"/><ellipse cx="0" cy="${-r * 0.93}" rx="${r * 0.42}" ry="${r * 0.14}" fill="#fff" opacity=".85"/>`; break;
-      case 'venus': feat = `<g fill="none" stroke="#fff8e0" stroke-opacity=".35" stroke-width="${r * 0.12}"><path d="M${-r},${-r * 0.3} q${r},${-r * 0.4} ${2 * r},0"/><path d="M${-r},${r * 0.25} q${r},${-r * 0.3} ${2 * r},${r * 0.1}"/></g>`; break;
-      case 'jupiter': feat = bands(r, ['#e9d2ae', '#c28a5a', '#f3e3c8', '#b97a4a', '#efdcc0', '#c99466', '#f2e2c6', '#b98252', '#e7cfa9']) + `<ellipse cx="${r * 0.3}" cy="${r * 0.3}" rx="${r * 0.22}" ry="${r * 0.12}" fill="#c4502e" opacity=".85"/>`; break;
+      case 'venus': {
+        const sw = (x) => `<path d="M${x - r},${-r * 0.3} q${r},${-r * 0.4} ${2 * r},0"/><path d="M${x - r},${r * 0.25} q${r},${-r * 0.3} ${2 * r},${r * 0.1}"/><path d="M${x - r * 0.6},${r * 0.62} q${r * 0.6},${-r * 0.2} ${r * 1.2},0"/>`;
+        feat = `<g fill="none" stroke="#fff8e0" stroke-opacity=".32" stroke-width="${r * 0.12}" stroke-linecap="round">${o.spin === 0 ? '' : `<animateTransform attributeName="transform" type="translate" from="0 0" to="${-2 * r} 0" dur="${Math.max(16, r * 0.6)}s" repeatCount="indefinite"/>`}${sw(0)}${sw(2 * r)}</g>`;
+        break;
+      }
+      case 'jupiter': {
+        const st = (x) => `<ellipse cx="${x}" cy="${r * 0.3}" rx="${r * 0.22}" ry="${r * 0.12}" fill="#c4502e" opacity=".85"/><ellipse cx="${x}" cy="${r * 0.3}" rx="${r * 0.14}" ry="${r * 0.07}" fill="#e07a4e" opacity=".7"/><ellipse cx="${x + r * 0.9}" cy="${-r * 0.42}" rx="${r * 0.08}" ry="${r * 0.04}" fill="#fff6e6" opacity=".8"/><ellipse cx="${x - r * 0.7}" cy="${r * 0.62}" rx="${r * 0.07}" ry="${r * 0.035}" fill="#fff6e6" opacity=".7"/>`;
+        const sp = r * 2.6;
+        feat = bands(r, ['#e9d2ae', '#c28a5a', '#f3e3c8', '#b97a4a', '#efdcc0', '#c99466', '#f2e2c6', '#b98252', '#e7cfa9']) + `<g fill="none" stroke="#fff4e0" stroke-opacity=".18" stroke-width="${r * 0.04}"><path d="M${-r},${-r * 0.22} q${r * 0.25},${-r * 0.06} ${r * 0.5},0 t${r * 0.5},0 t${r * 0.5},0 t${r * 0.5},0"/><path d="M${-r},${r * 0.12} q${r * 0.25},${r * 0.06} ${r * 0.5},0 t${r * 0.5},0 t${r * 0.5},0 t${r * 0.5},0"/></g>` + `<g>${o.spin === 0 ? '' : `<animateTransform attributeName="transform" type="translate" from="0 0" to="${-sp} 0" dur="${Math.max(14, r * 0.5)}s" repeatCount="indefinite"/>`}${st(r * 0.3)}${st(r * 0.3 + sp)}</g>`;
+        break;
+      }
       case 'saturn': feat = bands(r, ['#f3e2b0', '#d9bd7c', '#f6e8bf', '#cfae68', '#f2e0ae', '#d8bb7a']); break;
       case 'uranus': feat = bands(r, ['#c9f3f5', '#a9e5ea', '#bfeff2', '#9fdde4']); break;
-      case 'neptune': feat = bands(r, ['#5a82ff', '#3e64e6', '#5f86ff', '#3a5ad8']) + `<ellipse cx="${-r * 0.2}" cy="${r * 0.15}" rx="${r * 0.2}" ry="${r * 0.11}" fill="#101a60" opacity=".7"/><path d="M${-r * 0.1},${-r * 0.05} q${r * 0.2},-4 ${r * 0.4},0" stroke="#fff" stroke-opacity=".7" stroke-width="${r * 0.05}" fill="none"/>`; break;
+      case 'neptune': {
+        const sp = r * 2.6;
+        const st = (x) => `<ellipse cx="${x - r * 0.2}" cy="${r * 0.15}" rx="${r * 0.2}" ry="${r * 0.11}" fill="#101a60" opacity=".7"/><path d="M${x - r * 0.1},${-r * 0.05} q${r * 0.2},-4 ${r * 0.4},0" stroke="#fff" stroke-opacity=".7" stroke-width="${r * 0.05}" fill="none"/><path d="M${x + r * 0.3},${-r * 0.5} q${r * 0.15},-3 ${r * 0.3},0" stroke="#fff" stroke-opacity=".5" stroke-width="${r * 0.035}" fill="none"/>`;
+        feat = bands(r, ['#5a82ff', '#3e64e6', '#5f86ff', '#3a5ad8']) + `<g>${o.spin === 0 ? '' : `<animateTransform attributeName="transform" type="translate" from="0 0" to="${-sp} 0" dur="${Math.max(12, r * 0.4)}s" repeatCount="indefinite"/>`}${st(0)}${st(sp)}</g>`;
+        break;
+      }
       case 'pluto': feat = `<path d="M${r * 0.05},${r * 0.55} C${-r * 0.45},${r * 0.2} ${-r * 0.45},${-r * 0.35} ${-r * 0.12},${-r * 0.3} C${r * 0.02},${-r * 0.28} ${r * 0.05},${-r * 0.15} ${r * 0.08},${-r * 0.08} C${r * 0.12},${-r * 0.2} ${r * 0.25},${-r * 0.3} ${r * 0.42},${-r * 0.15} C${r * 0.6},${r * 0.05} ${r * 0.35},${r * 0.35} ${r * 0.05},${r * 0.55}Z" fill="#fbf1e2" opacity=".95"/><path d="M${-r},${-r * 0.05} q${r * 0.3},${r * 0.35} ${r * 0.6},${r * 0.45}" stroke="#4a2c1c" stroke-width="${r * 0.2}" fill="none" opacity=".45"/>`; break;
       default: break;
     }
@@ -147,7 +189,8 @@
     if (o.glow) s += `<circle r="${r * 1.25}" fill="url(#g-atmo)"/>`;
     if (kind === 'saturn' && o.rings !== false) s += P.rings(r, 'back');
     if (kind === 'uranus' && o.rings) s += `<ellipse rx="${r * 0.35}" ry="${r * 1.6}" fill="none" stroke="#bfe9ee" stroke-opacity=".35" stroke-width="2"/>`;
-    s += `<clipPath id="${id}"><circle r="${r}"/></clipPath><g clip-path="url(#${id})"><circle r="${r}" fill="url(#${grad})"/>${feat}${o.noShade ? '' : '<circle r="' + r + '" fill="url(#g-shade)"/>'}</g>`;
+    const rim = ['earth', 'venus', 'mars', 'jupiter', 'saturn', 'uranus', 'neptune', 'young'].includes(kind) ? `<circle r="${r}" fill="url(#g-rim-${kind})"/>` : '';
+    s += `<clipPath id="${id}"><circle r="${r}"/></clipPath><g clip-path="url(#${id})"><circle r="${r}" fill="url(#${grad})"/>${feat}${rim}${o.noShade ? '' : '<circle r="' + r + '" fill="url(#g-shade)"/>'}</g>`;
     if (kind === 'saturn' && o.rings !== false) s += P.rings(r, 'front');
     return s + '</g>';
   };
@@ -162,15 +205,27 @@
   };
   P.sun = function (x, y, r, o = {}) {
     let s = `<g transform="translate(${x},${y})">`;
-    s += `<circle r="${r * (r > 80 ? 1.3 : 2.4)}" fill="url(#g-glow)" class="pulse" style="--dur:4s;--s:1.06"/>`;
+    const big = r > 80;
+    s += `<circle r="${r * (big ? 1.3 : 2.4)}" fill="url(#g-glow)" class="pulse" style="--dur:4s;--s:1.06"/>`;
+    s += `<circle r="${r * (big ? 1.12 : 1.6)}" fill="url(#g-glow)" class="pulse" style="--dur:2.7s;--s:1.09;--d:-1.3s" opacity=".7"/>`;
     s += `<circle r="${r}" fill="url(#g-sun)"/>`;
+    if (r >= 14) {
+      const id = P.uid('sg'), R = P.rng(Math.round(r));
+      let g = '';
+      for (let i = 0; i < (big ? 26 : 10); i++) {
+        const a = R() * 6.283, d = Math.sqrt(R()) * r * 0.9, gr = r * (0.08 + R() * 0.12);
+        g += `<circle cx="${(Math.cos(a) * d).toFixed(1)}" cy="${(Math.sin(a) * d).toFixed(1)}" r="${gr.toFixed(1)}" fill="url(#${R() < 0.6 ? 'g-gran' : 'g-spot'})" class="glowp" style="--dur:${(2 + R() * 3).toFixed(1)}s;--d:${(-R() * 3).toFixed(1)}s;--lo:.3"/>`;
+      }
+      s += `<clipPath id="${id}"><circle r="${r}"/></clipPath><g clip-path="url(#${id})"><g>${P.spin(0, 0, big ? 120 : 60)}${g}</g></g>`;
+    }
     if (o.spots) s += `<circle cx="${r * 0.3}" cy="${-r * 0.2}" r="${r * 0.06}" fill="#b34a14" opacity=".6"/><circle cx="${-r * 0.25}" cy="${r * 0.35}" r="${r * 0.045}" fill="#b34a14" opacity=".55"/>`;
     return s + '</g>';
   };
   P.glowDot = (x, y, r, col = '#fff', cls = '', style = '') => `<g transform="translate(${x},${y})"><g class="${cls}" style="${style}"><circle r="${r * 4}" fill="url(#g-wglow)" opacity=".5"/><circle r="${r}" fill="${col}"/></g></g>`;
 
   // ─── Roketler (0,0 = taban ortası, yukarı bakar)
-  P.flame = (w, len, x = 0, y = 0) => `<g transform="translate(${x},${y})"><ellipse cx="0" cy="${len * 0.35}" rx="${w * 1.6}" ry="${len * 0.55}" fill="#ffb347" opacity=".35" filter="url(#f-soft)"/><path class="flicker" d="M${-w / 2},0 C${-w / 2},${len * 0.4} ${-w / 5},${len * 0.75} 0,${len} C${w / 5},${len * 0.75} ${w / 2},${len * 0.4} ${w / 2},0Z" fill="url(#g-flame)"/></g>`;
+  const tear = (w, len) => `M${-w / 2},0 C${-w / 2},${len * 0.4} ${-w / 5},${len * 0.75} 0,${len} C${w / 5},${len * 0.75} ${w / 2},${len * 0.4} ${w / 2},0Z`;
+  P.flame = (w, len, x = 0, y = 0, o = {}) => `<g transform="translate(${x},${y})"><ellipse cx="0" cy="${len * 0.3}" rx="${w * 1.9}" ry="${len * 0.6}" fill="#ffb347" opacity=".3" filter="url(#f-soft)" class="glowp" style="--dur:.23s;--lo:.18;--hi:.4"/><path class="flicker" d="${tear(w * 1.25, len * 1.12)}" fill="url(#g-flame-outer)"/><path class="flicker2" d="${tear(w * 0.8, len * 0.85)}" fill="url(#g-flame)"/><path class="flicker3" d="${tear(w * 0.36, len * 0.5)}" fill="url(#g-flame-core)"/>${o.diamonds ? [0.22, 0.38, 0.52].map((f, i) => `<ellipse cy="${len * f}" rx="${w * (0.2 - i * 0.04)}" ry="${len * 0.035}" fill="#fff6d0" opacity="${0.8 - i * 0.2}" class="flicker3"/>`).join('') : ''}</g>`;
   P.smoke = function (x, y, n = 9, seed = 4, spread = 120) {
     const R = P.rng(seed);
     let s = '';
@@ -182,25 +237,31 @@
   };
   P.rocket = function (v, o = {}) {
     const f = o.flame !== false;
+    const big = ['saturn5', 'starship', 'sls', 'energia', 'r7', 'falcon9'].includes(v);
+    const FL = (w, len, x = 0, y = 0) => {
+      const fl = P.flame(w, len, x, y, { diamonds: big && !o.noDiamonds });
+      const fxm = o.fx ? `<g transform="translate(${x},${y + 4})">${P.fx('exhaust', Object.assign({ size: Math.max(0.5, w / 18) }, o.fx))}</g>` : '';
+      return (o.ignite != null ? `<g class="ignite" style="--d:${o.ignite}s">${fl}</g>` : fl) + fxm;
+    };
     switch (v) {
       case 'goddard':
-        return `<g><rect x="-3" y="-80" width="6" height="30" rx="2" fill="#c7cdd8"/><path d="M-3,-80 L0,-90 L3,-80Z" fill="#e05a3a"/><line x1="-2" y1="-50" x2="-4" y2="-24" stroke="#8d95a8" stroke-width="1.5"/><line x1="2" y1="-50" x2="4" y2="-24" stroke="#8d95a8" stroke-width="1.5"/><rect x="-5" y="-40" width="10" height="16" rx="2" fill="#8d95a8"/>${f ? P.flame(6, 26, 0, -24) : ''}</g>`;
+        return `<g><rect x="-3" y="-80" width="6" height="30" rx="2" fill="#c7cdd8"/><path d="M-3,-80 L0,-90 L3,-80Z" fill="#e05a3a"/><line x1="-2" y1="-50" x2="-4" y2="-24" stroke="#8d95a8" stroke-width="1.5"/><line x1="2" y1="-50" x2="4" y2="-24" stroke="#8d95a8" stroke-width="1.5"/><rect x="-5" y="-40" width="10" height="16" rx="2" fill="#8d95a8"/>${f ? FL(6, 26, 0, -24) : ''}</g>`;
       case 'saturn5':
-        return `<g><rect x="-15" y="-190" width="30" height="190" fill="url(#g-white)"/><rect x="-15" y="-70" width="30" height="12" fill="#1b1f2a"/><rect x="-15" y="-150" width="30" height="6" fill="#1b1f2a"/><rect x="-7" y="-150" width="7" height="70" fill="#1b1f2a" opacity=".85"/><path d="M-15,-190 L-8,-212 L8,-212 L15,-190Z" fill="url(#g-white)"/><path d="M-8,-212 L0,-236 L8,-212Z" fill="#dfe3ea"/><line x1="0" y1="-236" x2="0" y2="-250" stroke="#dfe3ea" stroke-width="2"/><path d="M-15,-30 L-26,0 L-15,0Z M15,-30 L26,0 L15,0Z" fill="#1b1f2a"/>${f ? P.flame(26, 90) : ''}</g>`;
+        return `<g><rect x="-15" y="-190" width="30" height="190" fill="url(#g-white)"/><rect x="-15" y="-70" width="30" height="12" fill="#1b1f2a"/><rect x="-15" y="-150" width="30" height="6" fill="#1b1f2a"/><rect x="-7" y="-150" width="7" height="70" fill="#1b1f2a" opacity=".85"/><path d="M-15,-190 L-8,-212 L8,-212 L15,-190Z" fill="url(#g-white)"/><path d="M-8,-212 L0,-236 L8,-212Z" fill="#dfe3ea"/><line x1="0" y1="-236" x2="0" y2="-250" stroke="#dfe3ea" stroke-width="2"/><path d="M-15,-30 L-26,0 L-15,0Z M15,-30 L26,0 L15,0Z" fill="#1b1f2a"/>${f ? FL(26, 90) : ''}</g>`;
       case 'falcon9': case 'falconLand':
-        return `<g><rect x="-9" y="-200" width="18" height="200" fill="url(#g-white)"/><rect x="-9" y="-128" width="18" height="10" fill="#1b1f2a"/><path d="M-9,-200 Q0,-230 9,-200Z" fill="url(#g-white)"/><rect x="-12" y="-122" width="4" height="7" fill="#444c5c"/><rect x="8" y="-122" width="4" height="7" fill="#444c5c"/>${o.legs ? '<path d="M-9,-12 L-30,6 M9,-12 L30,6" stroke="#1b1f2a" stroke-width="4"/>' : ''}${f ? P.flame(14, o.short ? 40 : 80) : ''}</g>`;
+        return `<g><rect x="-9" y="-200" width="18" height="200" fill="url(#g-white)"/><rect x="-9" y="-128" width="18" height="10" fill="#1b1f2a"/><path d="M-9,-200 Q0,-230 9,-200Z" fill="url(#g-white)"/><rect x="-12" y="-122" width="4" height="7" fill="#444c5c"/><rect x="8" y="-122" width="4" height="7" fill="#444c5c"/>${o.legs ? '<path d="M-9,-12 L-30,6 M9,-12 L30,6" stroke="#1b1f2a" stroke-width="4"/>' : ''}${f ? FL(14, o.short ? 40 : 80) : ''}</g>`;
       case 'starship':
-        return `<g><rect x="-17" y="-270" width="34" height="270" fill="url(#g-metal)"/><rect x="-17" y="-130" width="34" height="3" fill="#6d7585"/><path d="M-17,-270 Q0,-320 17,-270Z" fill="url(#g-metal)"/><path d="M-17,-285 l-10,14 l10,4Z M17,-285 l10,14 l-10,4Z M-17,-150 l-12,18 l12,4Z M17,-150 l12,18 l-12,4Z" fill="#5a6272"/>${f ? P.flame(30, 110) : ''}</g>`;
+        return `<g><rect x="-17" y="-270" width="34" height="270" fill="url(#g-metal)"/><rect x="-17" y="-130" width="34" height="3" fill="#6d7585"/><path d="M-17,-270 Q0,-320 17,-270Z" fill="url(#g-metal)"/><path d="M-17,-285 l-10,14 l10,4Z M17,-285 l10,14 l-10,4Z M-17,-150 l-12,18 l12,4Z M17,-150 l12,18 l-12,4Z" fill="#5a6272"/>${f ? FL(30, 110) : ''}</g>`;
       case 'sls':
-        return `<g><rect x="-12" y="-210" width="24" height="210" fill="url(#g-orange)"/><rect x="-10" y="-250" width="20" height="40" fill="url(#g-white)"/><path d="M-10,-250 L0,-282 L10,-250Z" fill="url(#g-white)"/><g fill="url(#g-white)"><rect x="-27" y="-190" width="12" height="190"/><rect x="15" y="-190" width="12" height="190"/><path d="M-27,-190 L-21,-205 L-15,-190Z M15,-190 L21,-205 L27,-190Z"/></g>${f ? P.flame(18, 90, -21, 0) + P.flame(18, 90, 21, 0) + P.flame(14, 70) : ''}</g>`;
+        return `<g><rect x="-12" y="-210" width="24" height="210" fill="url(#g-orange)"/><rect x="-10" y="-250" width="20" height="40" fill="url(#g-white)"/><path d="M-10,-250 L0,-282 L10,-250Z" fill="url(#g-white)"/><g fill="url(#g-white)"><rect x="-27" y="-190" width="12" height="190"/><rect x="15" y="-190" width="12" height="190"/><path d="M-27,-190 L-21,-205 L-15,-190Z M15,-190 L21,-205 L27,-190Z"/></g>${f ? FL(18, 90, -21, 0) + FL(18, 90, 21, 0) + FL(14, 70) : ''}</g>`;
       case 'newshepard':
-        return `<g><rect x="-11" y="-110" width="22" height="110" rx="3" fill="url(#g-white)"/><path d="M-11,-110 Q0,-146 11,-110Z" fill="url(#g-white)"/><rect x="-13" y="-104" width="26" height="4" fill="#3d4a7a"/><path d="M-11,-10 L-22,4 L-11,4Z M11,-10 L22,4 L11,4Z" fill="#3d4a7a"/>${f ? P.flame(16, 60) : ''}</g>`;
+        return `<g><rect x="-11" y="-110" width="22" height="110" rx="3" fill="url(#g-white)"/><path d="M-11,-110 Q0,-146 11,-110Z" fill="url(#g-white)"/><rect x="-13" y="-104" width="26" height="4" fill="#3d4a7a"/><path d="M-11,-10 L-22,4 L-11,4Z M11,-10 L22,4 L11,4Z" fill="#3d4a7a"/>${f ? FL(16, 60) : ''}</g>`;
       case 'r7':
-        return `<g><rect x="-9" y="-190" width="18" height="190" fill="url(#g-white)"/><path d="M-9,-190 L-6,-214 L6,-214 L9,-190Z" fill="#b8c0cc"/><path d="M-6,-214 Q0,-232 6,-214Z" fill="#8a93a5"/><path d="M-9,-90 L-24,0 L-9,0Z M9,-90 L24,0 L9,0Z" fill="#dfe4ec"/><path d="M-9,-90 L-24,0 M9,-90 L24,0" stroke="#8a93a5"/>${f ? P.flame(34, 80) : ''}</g>`;
+        return `<g><rect x="-9" y="-190" width="18" height="190" fill="url(#g-white)"/><path d="M-9,-190 L-6,-214 L6,-214 L9,-190Z" fill="#b8c0cc"/><path d="M-6,-214 Q0,-232 6,-214Z" fill="#8a93a5"/><path d="M-9,-90 L-24,0 L-9,0Z M9,-90 L24,0 L9,0Z" fill="#dfe4ec"/><path d="M-9,-90 L-24,0 M9,-90 L24,0" stroke="#8a93a5"/>${f ? FL(34, 80) : ''}</g>`;
       case 'energia':
-        return `<g><rect x="-13" y="-200" width="26" height="200" fill="url(#g-orange)"/><path d="M-13,-200 Q0,-228 13,-200Z" fill="url(#g-orange)"/><g transform="translate(19,-40)">${P.orbiter(0.9, true)}</g>${f ? P.flame(24, 90) : ''}</g>`;
+        return `<g><rect x="-13" y="-200" width="26" height="200" fill="url(#g-orange)"/><path d="M-13,-200 Q0,-228 13,-200Z" fill="url(#g-orange)"/><g transform="translate(19,-40)">${P.orbiter(0.9, true)}</g>${f ? FL(24, 90) : ''}</g>`;
       default:
-        return `<g><rect x="-10" y="-150" width="20" height="150" fill="url(#g-white)"/><path d="M-10,-150 Q0,-180 10,-150Z" fill="#e05a3a"/><path d="M-10,-24 L-22,0 L-10,0Z M10,-24 L22,0 L10,0Z" fill="#e05a3a"/>${f ? P.flame(16, 60) : ''}</g>`;
+        return `<g><rect x="-10" y="-150" width="20" height="150" fill="url(#g-white)"/><path d="M-10,-150 Q0,-180 10,-150Z" fill="#e05a3a"/><path d="M-10,-24 L-22,0 L-10,0Z M10,-24 L22,0 L10,0Z" fill="#e05a3a"/>${f ? FL(16, 60) : ''}</g>`;
     }
   };
   // Mekik (uzay aracı gövdesi). up=true dikey (kalkış), değilse sağa bakar
@@ -276,7 +337,7 @@
       ? `<path d="M-30,0 C-26,-40 -18,-70 -14,-96 Q0,-104 16,-96 C20,-70 28,-40 34,0Z" fill="${L.robe}"/><path d="M-12,-96 Q0,-90 14,-96 L12,-80 Q0,-76 -10,-80Z" fill="${L.trim}" opacity=".9"/>`
       : `<path d="M-26,0 L-18,-98 Q0,-108 18,-98 L28,0Z" fill="${L.robe}"/><path d="M-2,-100 L2,0" stroke="${L.trim}" stroke-width="3" opacity=".8"/>${L.tie ? '<path d="M-6,-98 L0,-86 L6,-98Z" fill="#f2efe6"/><path d="M-1.5,-92 L1.5,-92 L2.5,-70 L0,-66 L-2.5,-70Z" fill="#9e2a2a"/>' : ''}${look === 'roman' ? '<path d="M-20,-96 Q10,-60 26,-2" stroke="#9e2a2a" stroke-width="6" fill="none" opacity=".85"/>' : ''}`;
     const ruff = L.ruff ? '<ellipse cx="2" cy="-102" rx="15" ry="5" fill="#f2efe6"/>' : '';
-    let head = `<circle cx="4" cy="-120" r="14" fill="${L.skin}"/><circle cx="12" cy="-122" r="1.6" fill="#1a1410"/>`;
+    let head = `<circle cx="4" cy="-120" r="14" fill="${L.skin}"/><circle cx="12" cy="-122" r="1.6" fill="#1a1410" class="eye"/><path d="M14,-114 q-3,2 -6,1" stroke="#000" stroke-opacity=".3" fill="none"/>`;
     const beard = {
       long: `<path d="M-2,-116 Q6,-84 18,-112 L14,-106 Q8,-96 0,-104Z" fill="${L.hair}"/><path d="M0,-110 h14 M1,-104 h12 M3,-98 h8" stroke="#000" stroke-opacity=".25"/>`,
       full: `<path d="M-4,-118 Q4,-94 18,-114 Q14,-104 4,-104 Q-2,-106 -4,-118Z" fill="${L.hair === '#6b6258' ? '#8f877c' : L.hair}"/>`,
@@ -344,7 +405,7 @@
         break;
       default: break;
     }
-    return `<g class="figure">${back}<ellipse cx="0" cy="2" rx="40" ry="6" fill="#000" opacity=".35"/>${body}${ruff}${arm}${head}${front}</g>`;
+    return `<g class="figure">${back}<ellipse cx="0" cy="2" rx="40" ry="6" fill="#000" opacity=".35"/><g class="breathe">${body}${ruff}<g class="arm">${arm}${front}</g>${head}</g></g>`;
   };
   P.setting = function (look) {
     const c = '#101840';
@@ -381,8 +442,9 @@
     }
   };
   P.station = function (v) {
-    const panel = (x, y, w, h, c = 'url(#g-panel)') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}" stroke="#6f86c9" stroke-width=".6"/>`;
-    const goldPanel = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#b8762e" stroke="#e8b45a" stroke-width=".6"/>`;
+    const lines = (x, y, w, h) => `<path d="${Array.from({ length: Math.max(1, Math.floor(h / 10)) }, (_, i) => `M${x},${y + (i + 1) * (h / Math.max(1, Math.floor(h / 10) + 1))} h${w}`).join(' ')}" stroke="#000" stroke-opacity=".25" stroke-width=".6"/>`;
+    const panel = (x, y, w, h, c = 'url(#g-panel)') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}" stroke="#6f86c9" stroke-width=".6"/>${lines(x, y, w, h)}<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#g-glint)"/>`;
+    const goldPanel = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#b8762e" stroke="#e8b45a" stroke-width=".6"/>${lines(x, y, w, h)}<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#g-glint)"/>`;
     switch (v) {
       case 'salyut':
         return `<g class="fade"><rect x="-70" y="-14" width="60" height="28" rx="4" fill="url(#g-metal)"/><rect x="-10" y="-18" width="70" height="36" rx="4" fill="url(#g-metal)"/><rect x="60" y="-10" width="16" height="20" fill="#8a93a5"/>${panel(-50, -60, 14, 46)}${panel(-50, 14, 14, 46)}${panel(20, -64, 14, 46)}${panel(20, 18, 14, 46)}</g>`;

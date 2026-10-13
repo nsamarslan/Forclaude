@@ -123,6 +123,12 @@ b, strong { color: var(--brass); font-weight: 600; }
   display: flex; flex-direction: column;
   padding: 18px var(--gutter) 10px;
 }
+.viewport::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 72% 62% at 50% 70%, var(--amb, transparent), transparent 76%);
+  opacity: 0; transition: opacity 0.9s ease;
+}
+.viewport.amb::before { opacity: 0.3; }
 .stamp { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 2px; pointer-events: none; }
 .era-name {
   font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
@@ -134,7 +140,10 @@ b, strong { color: var(--brass); font-weight: 600; }
   font-variant-numeric: tabular-nums;
   text-wrap: balance;
 }
-.year.travelling { color: var(--dust); }
+.year { transform-origin: 0 60%; }
+.year.travelling { color: var(--dust); filter: blur(0.5px); }
+.year.lock { animation: lockK 0.6s cubic-bezier(0.2, 1.5, 0.4, 1); }
+@keyframes lockK { from { transform: scale(1.07); color: var(--era-color, var(--brass)); text-shadow: 0 0 24px var(--era-color, var(--brass)); } to { transform: none; } }
 .ev-title {
   margin: 6px 0 0; font-family: var(--f-display); font-weight: 400;
   font-size: clamp(17px, 2vw, 24px); line-height: 1.25; text-wrap: balance; max-width: 30ch;
@@ -144,8 +153,26 @@ b, strong { color: var(--brass); font-weight: 600; }
   display: flex; align-items: center; justify-content: center;
   margin-top: 4px; overflow: hidden;
 }
-.scene > svg { width: 100%; height: 100%; max-height: 100%; }
-.scene.leaving > svg { animation: sceneOut 0.45s ease forwards; }
+.scene .shot { position: absolute; inset: 0; transform-origin: 50% 55%; }
+.scene .cam { position: absolute; inset: 0; transform-origin: 50% 55%; will-change: transform; }
+.scene .cam > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.scene canvas.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
+.shot.enter-f { animation: shotInF 0.95s cubic-bezier(0.16, 0.84, 0.24, 1) both; }
+.shot.enter-b { animation: shotInB 0.95s cubic-bezier(0.16, 0.84, 0.24, 1) both; }
+.shot.exit-f { animation: shotOutF 0.45s cubic-bezier(0.55, 0, 0.9, 0.45) forwards; }
+.shot.exit-b { animation: shotOutB 0.45s cubic-bezier(0.55, 0, 0.9, 0.45) forwards; }
+@keyframes shotInF { from { opacity: 0; transform: scale(0.78); filter: blur(14px) brightness(1.9); } 55% { opacity: 1; filter: blur(0) brightness(1.2); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes shotInB { from { opacity: 0; transform: scale(1.24); filter: blur(14px) brightness(1.9); } 55% { opacity: 1; filter: blur(0) brightness(1.2); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes shotOutF { to { opacity: 0; transform: scale(1.28); filter: blur(12px) brightness(1.7); } }
+@keyframes shotOutB { to { opacity: 0; transform: scale(0.76); filter: blur(12px) brightness(1.4); } }
+.warp-tint {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 58%, var(--era-color, var(--brass)) 0%, transparent 70%);
+  mix-blend-mode: screen;
+}
+.warp-tint.on { animation: tintK 1.4s ease-out; }
+@keyframes tintK { 0% { opacity: 0; } 22% { opacity: 0.32; } 100% { opacity: 0; } }
 .scene-note { position: absolute; right: 6px; bottom: 2px; font-family: var(--f-mono); font-size: 11px; color: var(--faint); }
 
 .nav-btn {
@@ -421,11 +448,33 @@ b, strong { color: var(--brass); font-weight: 600; }
 @keyframes flashK { 0% { opacity: 0; transform: scale(0.3); } 18% { opacity: 1; } 100% { opacity: 0; transform: scale(1.6); } }
 @keyframes cycleK { 0%, 12% { opacity: 1; } 12.5%, 100% { opacity: 0.25; } }
 .flash { transform-box: fill-box; transform-origin: center; }
+.flicker2 { transform-box: fill-box; transform-origin: 50% 0%; animation: flicker2 0.07s ease-in-out infinite alternate; }
+.flicker3 { transform-box: fill-box; transform-origin: 50% 0%; animation: flicker3 0.05s linear infinite alternate; }
+.ignite { transform-box: fill-box; transform-origin: 50% 0%; animation: igniteK 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; animation-delay: var(--d, 0s); }
+.figure .breathe { transform-box: fill-box; transform-origin: 50% 100%; animation: breathe 4.2s ease-in-out infinite; }
+.figure .head { transform-box: fill-box; transform-origin: 35% 92%; animation: lookUp 9s ease-in-out infinite; animation-delay: 0.4s; }
+.figure .eye { transform-box: fill-box; transform-origin: center; animation: blinkEye 4.7s linear infinite; }
+.figure .arm { transform-box: fill-box; transform-origin: 8% 10%; animation: armSway 6s ease-in-out infinite; }
+.settle { animation: settleK 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) both; animation-delay: var(--d, 0s); }
+.bump { animation: bumpK 0.42s ease-in-out infinite alternate; animation-delay: var(--d, 0s); }
+.drive { animation: moveK var(--dur, 4.8s) cubic-bezier(0.25, 0.1, 0.25, 1) both; animation-delay: var(--d, 0s); }
+.reveal { transform-box: fill-box; transform-origin: center; animation: growIn 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--d, 0.45s); }
+.blip { transform-box: fill-box; transform-origin: center; opacity: 0; animation: blipK 0.42s ease-out both; animation-delay: var(--d, 0s); }
+@keyframes flicker2 { from { transform: scaleY(0.9) scaleX(0.96); } to { transform: scaleY(1.14) scaleX(1.02); } }
+@keyframes flicker3 { from { transform: scaleY(0.86); opacity: 0.85; } to { transform: scaleY(1.1); opacity: 1; } }
+@keyframes igniteK { 0% { transform: scale(0.3, 0); opacity: 0; } 60% { transform: scale(1.15, 1.25); opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.014); } }
+@keyframes lookUp { 0% { transform: rotate(0); } 12%, 55% { transform: rotate(-9deg); } 62% { transform: rotate(-6deg); } 70%, 100% { transform: rotate(0); } }
+@keyframes blinkEye { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes armSway { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-2.5deg); } }
+@keyframes settleK { 0% { transform: translateY(0); } 35% { transform: translateY(4px) scaleY(0.97); } 100% { transform: none; } }
+@keyframes bumpK { from { transform: translateY(0) rotate(0); } to { transform: translateY(-1.6px) rotate(0.5deg); } }
+@keyframes blipK { 0% { opacity: 0; transform: scale(1.6); } 30% { opacity: 1; transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: scale(0.9); } }
 
 @keyframes sceneOut { to { opacity: 0; transform: scale(0.96); } }
 @keyframes infoIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes flash { 0%, 60% { border-color: var(--brass); background: var(--brass-soft); } 100% { border-color: var(--line); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .scn *, .info.arriving > *, .thumb, .overlay { animation-duration: 0.001s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition: none !important; }
+  .scn *, .info.arriving > *, .thumb, .overlay, .shot, .year.lock, .warp-tint.on { animation-duration: 0.001s !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition: none !important; }
 }

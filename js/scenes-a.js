@@ -3,7 +3,8 @@
   'use strict';
   const P = window.ScenePart;
   const S = (window.SCENES = window.SCENES || {});
-  const { svg, t, spin, stars, planet } = P;
+  const { svg, t, spin, stars, planet, fx } = P;
+  const fxOn = () => !!(window.FX && window.FX.enabled);
   const cos = Math.cos, sin = Math.sin, PI = Math.PI;
 
   // ─── Kozmik
@@ -11,7 +12,7 @@
     const R = P.rng(21);
     let parts = '';
     const cols = ['#fff', '#ffe7a8', '#9fd0ff', '#ffb38a', '#c9b6ff'];
-    for (let i = 0; i < 110; i++) {
+    for (let i = 0; i < (fxOn() ? 40 : 110); i++) {
       const a = R() * 2 * PI, d = 120 + R() * 360;
       parts += `<g transform="translate(400,225)"><circle r="${(1 + R() * 2.4).toFixed(1)}" fill="${cols[i % 5]}" class="move" style="--fx:0px;--fy:0px;--tx:${(cos(a) * d).toFixed(0)}px;--ty:${(sin(a) * d * 0.7).toFixed(0)}px;--fo:1;--to:${(0.3 + R() * 0.7).toFixed(2)};--dur:${(2.4 + R() * 2).toFixed(1)}s;--d:.35s"/></g>`;
     }
@@ -20,7 +21,7 @@
       const x = 80 + R() * 640, y = 50 + R() * 350, r = 10 + R() * 16;
       gal += `<g transform="translate(${x.toFixed(0)},${y.toFixed(0)}) rotate(${(R() * 180).toFixed(0)})"><g class="fade" style="--d:${(2.6 + R() * 1.5).toFixed(1)}s"><ellipse rx="${r}" ry="${(r * 0.38).toFixed(1)}" fill="#c9b6ff" opacity=".35" filter="url(#f-soft)"/><ellipse rx="${(r * 0.3).toFixed(1)}" ry="${(r * 0.15).toFixed(1)}" fill="#fff" opacity=".85"/></g></g>`;
     }
-    return svg(`<g transform="translate(400,225)"><circle r="160" fill="url(#g-glow)" class="flash" style="--dur:2.6s"/><circle r="40" fill="#fff" class="flash" style="--dur:1.2s"/></g>${parts}${gal}${t(400, 430, 'Uzay, zaman, madde ve enerji aynı anda doğdu', 'lbl-s', 'text-anchor="middle"')}`);
+    return svg(`<g transform="translate(400,225)"><circle r="160" fill="url(#g-glow)" class="flash" style="--dur:2.6s"/><circle r="40" fill="#fff" class="flash" style="--dur:1.2s"/>${[0, 1, 2].map((i) => `<circle r="60" fill="none" stroke="#fff4d8" stroke-width="${3 - i}" class="ripple" style="--s:${6 + i * 2};--dur:${2.2 + i * 0.6}s;--d:${0.15 + i * 0.25}s;animation-iteration-count:1;animation-fill-mode:both"/>`).join('')}${fx('bigbang', { delay: 0.15 })}${fx('burst', { delay: 0.15, count: 60, speed: 520, pal: 'white', life: 0.9, streak: 0.05, size: 4, size1: 2, drag: 0.4 })}${fx('flash', { delay: 0.1, dur: 1.1, a: 0.7 })}${fx('shake', { delay: 0.1, dur: 1.4, amp: 6 })}</g>${parts}${gal}${t(400, 430, 'Uzay, zaman, madde ve enerji aynı anda doğdu', 'lbl-s', 'text-anchor="middle"')}`);
   };
 
   S.starlife = function () {
@@ -31,7 +32,7 @@
       { x: 360, n: 'Kırmızı dev', g: '<circle r="70" fill="#ff6a3d" opacity=".18" filter="url(#f-soft)"/><circle r="46" fill="#ff7a3d" opacity=".9" class="pulse" style="--s:1.05"/>' },
       { x: 520, n: 'Süpernova', g: '<circle r="60" fill="url(#g-wglow)" class="pulse" style="--dur:1.4s;--s:1.25"/><g stroke="#ffe7a8" stroke-width="2">' + Array.from({ length: 12 }, (_, i) => `<line x1="0" y1="0" x2="${(cos(i * PI / 6) * 58).toFixed(0)}" y2="${(sin(i * PI / 6) * 58).toFixed(0)}"/>`).join('') + '</g>' },
     ];
-    let s = stars(60, 3);
+    let s = stars(60, 3) + `<g transform="translate(520,${y})">${fx('burst', { delay: 2.6, every: 3.4, count: 70, speed: 150, pal: 'hot', life: 1.6, size: 7, drag: 1.4 })}</g>` + fx('drift', { area: [20, 150, 100, 100], rate: 6, pal: 'ion', size: 1.6, a: 0.4 });
     st.forEach((o, i) => {
       s += `<g transform="translate(${o.x},${y})"><g class="pop" style="--d:${0.3 + i * 0.7}s">${o.g}</g></g>`;
       s += `<g class="fade" style="--d:${0.5 + i * 0.7}s">${t(o.x, y + 96, o.n, '', 'text-anchor="middle"')}</g>`;
@@ -60,21 +61,24 @@
       }
       return svg(`${stars(60, 5)}<g transform="translate(400,215) scale(1,.8)"><g class="pop" style="--d:.2s"><g>${spin(0, 0, 90)}${dots}</g><circle r="24" fill="url(#g-glow)"/><circle r="10" fill="#ffe7c2"/></g></g>${t(400, 400, 'Çift halkalı gökada · Burçin Galaksisi (PGC 1000714)', '', 'text-anchor="middle"')}`);
     }
-    let dots = '';
+    const rings = ['', '', ''];
     for (let arm = 0; arm < 4; arm++) {
       for (let i = 0; i < 150; i++) {
         const k = i / 150, a = arm * PI / 2 + k * 4.2, rr = 16 + k * 190;
         const j = 14 + k * 26;
         const x = cos(a) * rr + (R() - 0.5) * j, y = sin(a) * rr + (R() - 0.5) * j;
-        dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(0.7 + R() * 1.7).toFixed(1)}" fill="${R() < 0.3 ? '#ffd9a8' : R() < 0.6 ? '#9fd0ff' : '#fff'}" opacity="${(0.35 + R() * 0.65).toFixed(2)}"/>`;
+        const c = R() < 0.3 ? '#ffd9a8' : R() < 0.6 ? '#9fd0ff' : '#fff';
+        rings[k < 0.33 ? 0 : k < 0.66 ? 1 : 2] += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(0.7 + R() * 1.7).toFixed(1)}" fill="${c}" opacity="${(0.35 + R() * 0.65).toFixed(2)}"/>`;
+        if (R() < 0.05) rings[k < 0.33 ? 0 : k < 0.66 ? 1 : 2] += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(4 + R() * 6).toFixed(1)}" fill="${R() < 0.5 ? '#ff7ab8' : '#8f6cff'}" opacity=".18"/>`;
       }
     }
+    let dots = rings.map((g, i) => `<g>${spin(0, 0, [70, 120, 190][i])}${g}</g>`).join('');
     for (let i = 0; i < 160; i++) {
       const a = R() * 2 * PI, rr = Math.abs((R() + R() - 1)) * 70;
       dots += `<circle cx="${(cos(a) * rr).toFixed(1)}" cy="${(sin(a) * rr).toFixed(1)}" r="${(0.8 + R()).toFixed(1)}" fill="#ffe2b8" opacity=".8"/>`;
     }
     // "Buradasınız" işareti Avcı kolunda (merkezden ~2/3 uzaklıkta)
-    return svg(`<g transform="translate(400,220) scale(1,.52) rotate(-10)"><g class="grow" style="--from:.3;--dur:2.4s"><g>${spin(0, 0, 160)}<circle r="210" fill="#6f7cff" opacity=".06"/>${dots}<circle r="60" fill="url(#g-glow)" opacity=".8"/><g transform="translate(-118,70)"><circle r="6" fill="none" stroke="#e8b45a" stroke-width="3" class="pulse" style="--s:1.5"/></g></g></g></g>
+    return svg(`<g transform="translate(400,220) scale(1,.52) rotate(-10)"><g class="grow" style="--from:.3;--dur:2.4s"><circle r="210" fill="#6f7cff" opacity=".06"/>${dots}<circle r="60" fill="url(#g-glow)" opacity=".8" class="pulse" style="--dur:5s;--s:1.08"/><g>${spin(0, 0, 120)}<g transform="translate(-118,70)"><circle r="6" fill="none" stroke="#e8b45a" stroke-width="3" class="pulse" style="--s:1.5"/></g></g></g></g>
       <g class="fade" style="--d:2s">${t(56, 44, 'Samanyolu: 200-400 milyar yıldız', '')}${t(56, 64, 'Kalınlık ≈ 1000 ışık yılı', 'lbl-s')}${t(56, 82, 'Güneş: Avcı kolu, merkezden 25.000 ışık yılı', 'lbl-s lbl-gold')}</g>`);
   };
 
@@ -85,13 +89,15 @@
       ['jupiter', 190, 13, 30, 'Jüpiter'], ['saturn', 240, 10, 44, 'Satürn'], ['uranus', 290, 7.5, 60, 'Uranüs'], ['neptune', 345, 7.2, 80, 'Neptün'],
     ];
     const k = 0.34;
-    let orbits = '', bodies = '';
+    let orbits = '', back = '', front = '';
     pl.forEach(([kind, rx, r, dur, name], i) => {
       const ry = rx * k;
-      const path = P.orbitPath(cx, cy, rx, ry);
       orbits += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry.toFixed(1)}" fill="none" stroke="#8a95c8" stroke-opacity=".22" class="fade" style="--d:${1 + i * 0.15}s"/>`;
-      bodies += `<g class="fade" style="--d:${1.2 + i * 0.15}s"><g>${P.motion(path, dur, -(i * 1.7))}${planet(kind, 0, 0, r, { spin: 0, rings: kind === 'saturn' })}<text x="0" y="${-r - 6}" class="lbl-s" text-anchor="middle">${name}</text></g></g>`;
+      const o = P.orbit3d({ cx, cy, rx, ry, dur, begin: -(i * 1.7), depth: 0.16, body: `${planet(kind, 0, 0, r, { spin: 0, rings: kind === 'saturn' })}<text x="0" y="${-r - 6}" class="lbl-s" text-anchor="middle">${name}</text>` });
+      back += `<g class="fade" style="--d:${1.2 + i * 0.15}s">${o.back}</g>`;
+      front += `<g class="fade" style="--d:${1.2 + i * 0.15}s">${o.front}</g>`;
     });
+    const bodies = back;
     // asteroit kuşağı
     const R = P.rng(12);
     let belt = '';
@@ -107,7 +113,7 @@
     }
     return svg(`<g transform="translate(${cx},${cy}) scale(1,${k})"><g class="fade-out" style="--d:1.2s"><g>${spin(0, 0, 14)}${disk}</g></g></g>
       ${orbits}<g class="fade" style="--d:1.4s">${belt}<text x="${cx + 150}" y="${cy + 64}" class="lbl-s">asteroit kuşağı</text></g>
-      <g class="grow" style="--d:.2s;--dur:1.6s">${P.sun(cx, cy, 20)}</g>${bodies}
+      ${bodies}<g class="grow" style="--d:.2s;--dur:1.6s">${P.sun(cx, cy, 20)}</g>${front}${fx('vortex', { cx, cy: cy, r0: 330, r1: 24, tilt: k, rate: 60, w: 0.5, shrink: 70, pal: 'gold', delay: 0, dur: 1.6 })}
       <g class="fade" style="--d:2.4s">${t(56, 36, 'Karasal: Merkür, Venüs, Dünya, Mars', 'lbl-s')}${t(56, 54, 'Gazsal: Jüpiter, Satürn, Uranüs, Neptün', 'lbl-s')}${t(56, 72, 'Neptün ötesi: Kuiper Kuşağı → Oort Bulutu', 'lbl-s lbl-gold')}</g>`);
   };
 
@@ -135,13 +141,14 @@
     }
     let wind = '';
     const R = P.rng(4);
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < (fxOn() ? 0 : 26); i++) {
       const y = cy - 90 + R() * 180;
       wind += `<g transform="translate(${cx + r},${y.toFixed(0)})"><circle r="1.6" fill="#ffe7a8" class="move-lin" style="--tx:${(560 - r).toFixed(0)}px;--ty:${((cy - y) * 0.6).toFixed(0)}px;--to:0;--dur:${(2 + R() * 2).toFixed(1)}s;--d:${(R() * 3).toFixed(1)}s;animation-iteration-count:infinite"/></g>`;
     }
     const earth = `<g transform="translate(730,${cy})">${planet('earth', 0, 0, 16)}<g fill="none" stroke="#86d5ff" stroke-opacity=".45"><path d="M-22,-16 Q-50,0 -22,16"/><path d="M-26,-26 Q-70,0 -26,26"/></g>${sc.probe ? '<ellipse cx="0" cy="-17" rx="10" ry="4" fill="#5fd49a" opacity=".6" class="glowp"/>' : ''}</g>${t(730, cy + 40, 'Dünya', 'lbl-s', 'text-anchor="middle"')}`;
-    const probe = sc.probe ? `<g><animateMotion path="M640,120 C480,40 330,120 ${cx + r + 30},${cy - 10} C480,280 620,300 680,200" dur="7s" repeatCount="indefinite" rotate="auto"/>${P.probe('parker', 1.2)}</g>${t(560, 60, 'Parker Güneş Sondası · 2021\'de koronaya girdi', 'lbl-gold')}` : '';
-    return svg(`<g class="fade" style="--d:.1s">${wind}</g>${P.sun(cx, cy, r, { spots: true })}${prom}<g transform="translate(${cx},${cy})">${cut}</g>${sc.probe ? '' : labels}${earth}${probe}
+    const probe = sc.probe ? `<g><animateMotion path="M640,120 C480,40 330,120 ${cx + r + 30},${cy - 10} C480,280 620,300 680,200" dur="7s" repeatCount="indefinite" rotate="auto"/>${P.probe('parker', 1.2)}${fx('trail', { pal: 'ion', rate: 40, size: 0.6, life: 0.8 })}</g>${t(560, 60, 'Parker Güneş Sondası · 2021\'de koronaya girdi', 'lbl-gold')}` : '';
+    const sparks = [-1.9, -1.0, -0.1].map((a, i) => `<g transform="translate(${(cx + cos(a) * r).toFixed(0)},${(cy + sin(a) * r).toFixed(0)})">${fx('burst', { delay: 0.8 + i * 1.1, every: 3.3, count: 26, speed: 70, dir: (a * 180) / PI, spread: 40, pal: 'ember', life: 1.3, size: 6, drag: 0.6, g: 30 })}</g>`).join('');
+    return svg(`<g class="fade" style="--d:.1s">${wind}</g>${fx('stream', { from: [cx + r * 0.9, cy], to: [712, cy], width: 220, rate: 55, speed: 210, pal: 'gold', size: 1.3 })}${P.sun(cx, cy, r, { spots: true })}${prom}${sparks}<g transform="translate(${cx},${cy})">${cut}</g>${sc.probe ? '' : labels}${earth}${probe}
       ${sc.probe ? t(400, 425, 'Güneş rüzgârı → manyetik fırtına → aurora ve uydu arızaları', 'lbl-s', 'text-anchor="middle"') : t(560, 425, 'Işık Dünya\'ya ~8 dakikada ulaşır', 'lbl-s')}`);
   };
 
@@ -161,18 +168,21 @@
       debris += `<circle cx="${(cos(a) * rr).toFixed(1)}" cy="${(sin(a) * rr * 0.4).toFixed(1)}" r="${(1 + R() * 2).toFixed(1)}" fill="#e0a070" opacity=".85"/>`;
     }
     return svg(`${stars(50, 13)}
+      ${(() => { const o = P.orbit3d({ cx: 360, cy: 230, rx: 170, ry: 66, dur: 10, depth: 0.22, body: planet('moon', 0, 0, 18) }); return `<g class="fade" style="--d:4s">${o.back}</g>`; })()}
       <g transform="translate(360,230)">${planet('young', 0, 0, 80, { noShade: false })}</g>
       <g transform="translate(700,120)"><g class="move-in" style="--tx:-290px;--ty:80px;--dur:1.6s"><g class="fade-out" style="--d:1.5s;--dur:.2s">${planet('mars', 0, 0, 34)}</g></g></g>
       ${t(640, 70, 'Theia', 'lbl-s')}
-      <g transform="translate(418,212)"><circle r="70" fill="url(#g-wglow)" class="flash" style="--d:1.5s;--dur:1.6s"/></g>
-      <g transform="translate(360,230)"><g class="fade" style="--d:1.8s"><g class="fade-out" style="--d:4.5s">${debris}</g></g></g>
-      <g class="fade" style="--d:4s"><g>${P.motion(P.orbitPath(360, 230, 170, 66), 10)}${planet('moon', 0, 0, 18)}</g></g>
+      <g transform="translate(418,212)"><circle r="70" fill="url(#g-wglow)" class="flash" style="--d:1.5s;--dur:1.6s"/>${fx('burst', { delay: 1.5, count: 240, speed: 260, pal: 'fire', life: 2, size: 9, drag: 1.1, dir: -20, spread: 110 })}${fx('flash', { delay: 1.5, dur: 0.9, a: 0.6, color: '#ffe2b0' })}${fx('shake', { delay: 1.5, dur: 1.3, amp: 7 })}</g>
+      ${fx('ring', { delay: 1.75, cx: 360, cy: 230, rx: 150, ry: 60, count: 170, life: 2.9, w: 1.1, pal: 'ember' })}
+      <g transform="translate(360,230)"><g class="fade" style="--d:1.8s"><g class="fade-out" style="--d:4.5s">${fxOn() ? '' : debris}</g></g></g>
+      ${(() => { const o = P.orbit3d({ cx: 360, cy: 230, rx: 170, ry: 66, dur: 10, depth: 0.22, body: planet('moon', 0, 0, 18) }); return `<g class="fade" style="--d:4s">${o.front}</g>`; })()}
       <g class="fade" style="--d:4.2s">${t(560, 400, 'Enkaz birleşti: Ay doğdu · 384.400 km · her yıl ~4 cm uzaklaşıyor', 'lbl-s', 'text-anchor="middle"')}</g>`);
   };
 
   S.impact = function () {
     return svg(`<rect width="800" height="450" fill="url(#g-dawn)" opacity=".55"/>${stars(30, 4, [0, 0, 800, 200])}${P.ground('earth', 360, 5)}
-      <g transform="translate(400,352)"><g class="move-in" style="--fx:320px;--fy:-400px;--dur:1.5s;--d:.3s"><g class="fade-out" style="--d:1.75s;--dur:.1s"><path d="M0,0 L120,-150" stroke="#ffcf6b" stroke-width="10" stroke-linecap="round" opacity=".6" filter="url(#f-soft)"/><circle r="10" fill="#fff4d0"/></g></g></g>
+      <g transform="translate(400,352)"><g class="move-in" style="--fx:320px;--fy:-400px;--dur:1.5s;--d:.3s"><g class="fade-out" style="--d:1.75s;--dur:.1s"><path d="M0,0 L120,-150" stroke="#ffcf6b" stroke-width="10" stroke-linecap="round" opacity=".6" filter="url(#f-soft)"/><circle r="10" fill="#fff4d0"/>${fx('trail', { delay: 0.3, dur: 1.45, rate: 120, size: 1.4, pal: 'fire' })}</g></g></g>
+      <g transform="translate(400,352)">${fx('burst', { delay: 1.75, count: 130, speed: 330, dir: -90, spread: 75, pal: 'ember', life: 1.4, streak: 0.04, size: 3.5, size1: 2, g: 420, drag: 0.3 })}${fx('burst', { delay: 1.8, count: 50, speed: 140, dir: -90, spread: 80, pal: 'earth', add: false, life: 3.2, size: 26, size1: 90, drag: 1.4, a: 0.5 })}${fx('billow', { delay: 1.85, dur: 1.4, rate: 26, size: 0.8 })}${fx('flash', { delay: 1.75, dur: 0.8, a: 0.65 })}${fx('shake', { delay: 1.75, dur: 1.1, amp: 8 })}</g>
       <g transform="translate(400,350)"><circle r="120" fill="url(#g-glow)" class="flash" style="--d:1.8s;--dur:1.8s"/></g>
       <g class="fade" style="--d:2s"><ellipse cx="400" cy="372" rx="120" ry="18" fill="#05070f" opacity=".85"/><ellipse cx="400" cy="368" rx="128" ry="22" fill="none" stroke="#3a4270" stroke-width="4"/></g>
       <g class="fade" style="--d:2.1s">${[0, 1, 2, 3, 4].map((i) => `<circle cx="${340 + i * 30}" cy="${340 - (i % 2) * 10}" r="${24 + i * 3}" fill="#8a7a6a" opacity=".45" class="grow" style="--d:${2 + i * 0.1}s;--dur:2.5s"/>`).join('')}</g>
@@ -274,7 +284,7 @@
       const a = R() * 2 * PI, r1 = 20 + R() * 40, r2 = 80 + R() * 70;
       fil += `<path d="M${(cos(a) * r1).toFixed(0)},${(sin(a) * r1 * 0.75).toFixed(0)} Q${(cos(a + 0.3) * r2 * 0.6).toFixed(0)},${(sin(a + 0.3) * r2 * 0.5).toFixed(0)} ${(cos(a) * r2).toFixed(0)},${(sin(a) * r2 * 0.72).toFixed(0)}" stroke="${['#ff7a5c', '#ffb86b', '#7fd4ff', '#c38bff'][i % 4]}" stroke-width="${(1 + R() * 2.5).toFixed(1)}" fill="none" opacity=".75"/>`;
     }
-    return svg(`${stars(80, 2)}<g transform="translate(400,220)"><circle r="200" fill="url(#g-wglow)" class="flash" style="--dur:2.2s"/><circle r="30" fill="#fff" class="flash" style="--dur:1.6s"/><g class="grow" style="--d:1.4s;--dur:3s;--from:.2"><ellipse rx="150" ry="112" fill="#6f7cff" opacity=".12" filter="url(#f-blur)"/>${fil}</g><g class="fade" style="--d:2.8s"><circle r="4" fill="#fff" class="blink" style="--dur:.35s"/></g></g>
+    return svg(`${stars(80, 2)}<g transform="translate(400,220)"><circle r="200" fill="url(#g-wglow)" class="flash" style="--dur:2.2s"/><circle r="30" fill="#fff" class="flash" style="--dur:1.6s"/><g class="grow" style="--d:1.4s;--dur:3s;--from:.2"><ellipse rx="150" ry="112" fill="#6f7cff" opacity=".12" filter="url(#f-blur)"/>${fil}</g><g class="fade" style="--d:2.8s"><circle r="4" fill="#fff" class="blink" style="--dur:.35s"/><circle r="10" fill="none" stroke="#bfe6ff" class="ripple" style="--s:5;--dur:1.4s"/></g>${fx('burst', { delay: 0.1, count: 320, speed: 280, pal: 'hot', life: 3.2, size: 7, size1: 3, drag: 0.5 })}${fx('burst', { delay: 0.12, count: 70, speed: 520, pal: 'white', life: 0.9, streak: 0.05, size: 3, size1: 2, drag: 0.4 })}${fx('flash', { delay: 0.05, dur: 1.2, a: 0.75 })}${fx('shake', { delay: 0.05, dur: 1, amp: 5 })}</g>
       <g class="fade" style="--d:2.6s">${t(56, 60, '4 Temmuz 1054: Çinli gökbilimcilerin "misafir yıldızı"', '')}${t(56, 80, 'Bugün: Yengeç Bulutsusu (M1) · merkezde pulsar', 'lbl-s lbl-gold')}</g>`);
   };
 
@@ -317,7 +327,7 @@
 
   S.comet = {
     svg: () => svg(`<g id="cm-orbit"></g>${P.sun(180, 225, 34)}<ellipse cx="440" cy="225" rx="300" ry="120" fill="none" stroke="#8a95c8" stroke-opacity=".25" stroke-dasharray="4 6"/>
-      <g class="cm-comet"><path class="cm-tail" d="M0,0 L-160,-22 L-160,22Z" fill="url(#g-bglow)" opacity=".8"/><circle r="6" fill="#e8f6ff"/><circle r="14" fill="url(#g-bglow)" opacity=".7"/></g>
+      <g class="cm-comet"><path class="cm-tail" d="M0,0 L-160,-22 L-160,22Z" fill="url(#g-bglow)" opacity="${fxOn() ? 0.35 : 0.8}"/><circle r="14" fill="url(#g-bglow)" opacity=".7"/><circle r="6" fill="#e8f6ff"/>${fx('tail', { away: [180, 225], rate: 110 })}</g>
       ${t(56, 50, 'Halley: ~76 yılda bir döner', '')}${t(56, 70, 'Son geçiş 1986 · Sıradaki 2061', 'lbl-s lbl-gold')}${t(56, 400, 'Kuyruk hep Güneş\'in tersini gösterir', 'lbl-s')}${t(744, 400, 'Çekirdek · koma · kuyruk', 'lbl-s', 'text-anchor="end"')}`),
     run(el) {
       const c = el.querySelector('.cm-comet');
@@ -352,9 +362,12 @@
     return svg(`${stars(60, 19, [0, 0, 440, 330])}<rect width="800" height="450" fill="url(#g-night)" opacity=".6"/>${P.setting(sc.look)}
       <path d="M0,396 Q220,372 460,398 T800,392 L800,450 L0,450Z" fill="url(#g-hill)"/>
       <g transform="translate(250,400)"><g class="fade" style="--dur:.8s">${P.figure(sc.look, sc.tool)}</g></g>
-      <g class="fade" style="--d:.5s">${[0, 1, 2, 3].map((i) => `<circle cx="${300 + i * 30}" cy="${262 - i * 18}" r="${2 + i}" fill="#e8b45a" opacity="${0.3 + i * 0.15}" class="glowp" style="--d:${i * 0.2}s"/>`).join('')}</g>
-      <g transform="translate(590,188)"><g class="pop" style="--d:.35s"><circle r="150" fill="url(#g-vision)" stroke="#e8b45a" stroke-opacity=".7" stroke-width="1.5"/><circle r="156" fill="none" stroke="#e8b45a" stroke-opacity=".25" stroke-dasharray="1 7"/>
-        <clipPath id="${clip}"><circle r="148"/></clipPath><g clip-path="url(#${clip})">${vis}</g></g></g>
+      ${(() => { const path = 'M266,268 C320,250 360,190 446,196'; return `<path d="${path}" fill="none" stroke="#e8b45a" stroke-opacity=".14" stroke-dasharray="2 6"/>` + [0, 1, 2, 3, 4, 5].map((i) => `<circle r="${1.6 + (i % 3) * 0.8}" fill="#ffe2a0" opacity="0"><animateMotion path="${path}" dur="2.4s" begin="${(0.4 + i * 0.4).toFixed(1)}s" repeatCount="indefinite" keyPoints="0;1" keyTimes="0;1" calcMode="spline" keySplines=".4 0 .6 1"/><animate attributeName="opacity" values="0;.9;.9;0" keyTimes="0;.15;.8;1" dur="2.4s" begin="${(0.4 + i * 0.4).toFixed(1)}s" repeatCount="indefinite"/></circle>`).join(''); })()}
+      <g transform="translate(590,188)"><circle r="190" fill="url(#g-glow)" opacity=".12" class="pulse" style="--dur:5s;--s:1.05"/><g class="pop" style="--d:.3s"><circle r="150" fill="url(#g-vision)"/>
+        <g>${spin(0, 0, 70)}<circle r="157" fill="none" stroke="#e8b45a" stroke-opacity=".3" stroke-dasharray="1 7"/>${Array.from({ length: 24 }, (_, i) => { const a = (i * PI) / 12; return `<line x1="${(cos(a) * 162).toFixed(1)}" y1="${(sin(a) * 162).toFixed(1)}" x2="${(cos(a) * (i % 6 ? 166 : 172)).toFixed(1)}" y2="${(sin(a) * (i % 6 ? 166 : 172)).toFixed(1)}" stroke="#e8b45a" stroke-opacity=".45"/>`; }).join('')}</g>
+        <g>${spin(0, 0, 18, true)}<path d="M${(cos(-0.4) * 150).toFixed(1)},${(sin(-0.4) * 150).toFixed(1)} A150,150 0 0,1 ${(cos(0.5) * 150).toFixed(1)},${(sin(0.5) * 150).toFixed(1)}" fill="none" stroke="#ffe2a0" stroke-width="2.5" stroke-linecap="round" opacity=".7"/><path d="M${(cos(2.7) * 150).toFixed(1)},${(sin(2.7) * 150).toFixed(1)} A150,150 0 0,1 ${(cos(3.3) * 150).toFixed(1)},${(sin(3.3) * 150).toFixed(1)}" fill="none" stroke="#ffe2a0" stroke-width="2" stroke-linecap="round" opacity=".5"/></g>
+        <circle r="150" fill="none" stroke="#e8b45a" stroke-opacity=".75" stroke-width="1.5" class="draw" style="--len:943;--dur:1.1s;--d:.3s"/>
+        <clipPath id="${clip}"><circle r="148"/></clipPath><mask id="${clip}m" maskUnits="userSpaceOnUse" x="-150" y="-150" width="300" height="300"><circle r="150" fill="#fff" class="reveal" style="--d:.55s"/></mask><g clip-path="url(#${clip})"><g mask="url(#${clip}m)">${vis}</g>${fx('drift', { area: [450, 50, 280, 280], rate: 4, pal: 'gold', size: 1.2, a: 0.45 })}</g></g></g>
       <g class="fade" style="--d:.9s"><text x="590" y="372" class="lbl-b" text-anchor="middle">${sc.name || ''}</text><text x="590" y="394" class="lbl-gold" text-anchor="middle">${yl}</text></g>`);
   };
 
@@ -488,8 +501,9 @@
     });
     return `${stars(24, 41, [-140, -140, 140, 140])}${s}${t(0, 60, 'Io · Europa · Ganymede · Callisto', 'lbl-s', 'text-anchor="middle"')}${t(0, 80, 'Galileo Uyduları · 1610', 'lbl-gold', 'text-anchor="middle"')}`;
   };
-  V.rings = () => `${stars(20, 43, [-140, -140, 140, 140])}${planet('saturn', 0, 0, 36)}<g>${P.motion(P.orbitPath(0, 0, 124, 34), 9)}<circle r="5" fill="#e3a54a"/><text x="8" y="-6" class="lbl-s">Titan</text></g>${t(0, 110, 'İnce, düz bir halka · 7 ana halka', 'lbl-s', 'text-anchor="middle"')}`;
-  V.gravity = () => `${planet('earth', 0, 30, 34, { spin: 16 })}<ellipse cx="0" cy="30" rx="112" ry="44" fill="none" stroke="#8a95c8" stroke-opacity=".35"/><g>${P.motion(P.orbitPath(0, 30, 112, 44), 9)}${planet('moon', 0, 0, 9)}</g>
+  V.rings = () => { const o = P.orbit3d({ cx: 0, cy: 0, rx: 124, ry: 34, dur: 9, depth: 0.3, body: '<circle r="5" fill="#e3a54a"/><text x="8" y="-6" class="lbl-s">Titan</text>' }); return `${stars(20, 43, [-140, -140, 140, 140])}${o.back}${planet('saturn', 0, 0, 36)}${o.front}${t(0, 110, 'İnce, düz bir halka · 7 ana halka', 'lbl-s', 'text-anchor="middle"')}`; };
+
+  V.gravity = () => `${(() => { const o = P.orbit3d({ cx: 0, cy: 30, rx: 112, ry: 44, dur: 9, depth: 0.25, body: planet('moon', 0, 0, 9) }); return `<ellipse cx="0" cy="30" rx="112" ry="44" fill="none" stroke="#8a95c8" stroke-opacity=".35"/>${o.back}${planet('earth', 0, 30, 34, { spin: 16 })}${o.front}`; })()}
     <g transform="translate(-70,-110)"><circle r="7" fill="#e0402e" class="move-in" style="--fy:0px;--ty:92px;--dur:1.4s;animation-iteration-count:infinite"/></g><path d="M-70,-122 q-6,-8 -2,-12" stroke="#3a8a3a" stroke-width="3" fill="none"/>
     ${t(0, -60, 'F = G·m₁·m₂ / r²', 'lbl-gold', 'text-anchor="middle"')}${t(0, 108, 'Elmayı ve Ay\'ı aynı kuvvet çeker', 'lbl-s', 'text-anchor="middle"')}`;
   V.nebulae = () => {

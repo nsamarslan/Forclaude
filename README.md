@@ -65,6 +65,7 @@ yerleştirebilirsin.
 | `data/questions.js` | 862 soru (betikle üretilir) |
 | `js/scene-parts.js` | SVG çizim parçaları: gezegenler, roketler, uydular, figürler... |
 | `js/scenes-a.js`, `js/scenes-b.js` | Her durak türü için animasyonlu sahneler |
+| `js/fx.js` | Sahnenin üstündeki parçacık katmanı: roket alevi ve dumanı, iniş tozu, patlamalar, toplanma diskleri, kamera sarsıntısı |
 | `js/app.js` | Zaman yolculuğu, zaman çizgisi, arama, konu turu, sınav |
 | `tools/build_questions.py` | JSON arşivinden soru verisini üreten betik |
 | `tools/question_map.json` | Soru → durak eşlemesi |
